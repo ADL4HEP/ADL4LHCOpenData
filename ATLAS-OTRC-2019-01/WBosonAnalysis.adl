@@ -1,0 +1,87 @@
+info analysis
+  title "Review of the 13 TeV ATLAS Open Data release"
+  experiment ATLAS
+  id "ATLOREACH-PUB-2020-001"
+  publication " EPJ Web Conf., 245 (2020) 08026"
+  sqrtS 13.0
+  lumi 10000
+  doi "10.1051/epjconf/202024508026"
+
+SkipHistos = 1
+
+# OBJECT SELECTION
+
+object goodEles
+  take ELE
+  select lep_isTightID(ELE) == 1 
+  select lep_pt(ELE) > 35000.0
+  select lep_ptcone30(ELE)/lep_pt(ELE) <   0.1      
+  select lep_etcone20(ELE)/lep_pt(ELE) <   0.1      
+  select abs(lep_eta(ELE)) <   2.47        
+  select abs(lep_eta(ELE)) ][ 1.37 1.52   
+  select Abs(lep_trackd0pvunbiased(ELE))/lep_tracksigd0pvunbiased(ELE) < 5.0
+  select Abs(lep_z0(ELE))*sin(Theta(ELE))< 0.5
+# dz is Theta of the vector
+
+object goodMuos
+  take MUO
+  select lep_isTightID(MUO) == 1 
+  select lep_pt(MUO) > 35000.0                  
+  select lep_ptcone30(MUO)/lep_pt(MUO) <   0.1       
+  select lep_etcone20(MUO)/lep_pt(MUO) <   0.1      
+  select abs(lep_eta(MUO)) < 2.5 
+  select Abs(lep_trackd0pvunbiased(MUO))/lep_tracksigd0pvunbiased(MUO) < 3.0
+  select Abs(lep_z0(MUO)*sin(dz(MUO))) < 0.5
+
+object goodLepts : Union(goodEles, goodMuos)
+
+define leadLept = goodLeps[0]
+
+define mtw = sqrt(2*Pt(leadLept)*MET*(1 - cos(dPhi(leadLept, METLV[0]))))
+
+## VARIABLE DEFINITIONS
+
+define Lumi = 10064.0
+define SFactor = scaleFactor_ELE*scaleFactor_MUON*scaleFactor_LepTRIGGER*scaleFactor_PILEUP
+define totWeight =  mcWeight*SFactor*XSection*Lumi/SumWeights
+define totWeightAuto = HSTEP(channelNumber < 310000) * 1 + HSTEP(channelNumber > 310000) * totWeight 
+
+## HISTOGRAM DEFINITONS
+
+histoList allHistos
+  histo hleadleptPt, "Lepton Transverse Momentum;p_{T}^{lep} [GeV];Events / bin", 20, 0.0 , 200.0 , Pt(leadLep)
+  histo hleadleptEta,"Lepton Pseudorapidity; #eta^{lep}; Events / bin", 30, -3.0, 3.0, Eta(leadLep)
+  histo hleadleptPhi, "Lepton Azimuthal Angle ; #phi^{lep}; Events / bin", 32, -3.2, 3.2, Phi(leadLep)
+  histo hleadleptE, "Lepton Energy; E^{lep} [GeV]; Events / bin", 30, 0.0, 300.0, E(leadLep)
+  histo hjetsN, "Number of Jets;N_{jets};Events", 6, -0.5, 5.5, Size(JET)
+  histo hmissEt, "Missing Transverse Momentum;E_{T}^{miss} [GeV];Events / bin" , 30, 0.0, 200.0, MET
+
+## EVENT SELECTION
+
+region init
+  select ALL
+  select Size(goodEles) >= 0
+  select Size(goodMuos) >= 0
+  select Size(goodLepts) >= 0
+  sort Pt(goodLepts) descend
+ 
+region Wlnu
+  init
+  weight myweight totWeightAuto
+  select trigE == 1 || trigM == 1
+  select MET > 30000  
+  select Size(goodLeps) == 1
+  select mtw > 60.0
+  histo hlnuMt, "Transverse Mass; M^{W #rightarrow #ell#nu}_{T} [GeV];Events / bin", 40 , 39.0 , 180.0, mtw
+  allHistos
+
+region Wenu
+  Wlnu
+  select Abs(pdgID(leadLep)) == 11
+  histo henuMt, "Transverse Mass; M^{W #rightarrow e#nu}_{T} [GeV];Events / bin", 40 , 39.0 , 180.0, mtw
+
+region Wmunu
+  Wlnu
+  select Abs(pdgID(leadLep)) == 13
+  histo hmunuMt, "Transverse Mass; M^{W #rightarrow #mu#nu}_{T} [GeV];Events / bin", 40, 39.0, 180.0, mtw
+
