@@ -7,51 +7,49 @@ info analysis
   lumi 10000
   doi "10.1051/epjconf/202024508026"
 
-SkipHistos = 1 # not display the histograms in final efficiency table.
+SkipHistos = 1
 
-### OBJECT DEFINITIONS
+# OBJECT SELECTION
 object goodEles
   take ELE
-  select lep_isTight(ELE) == 1   # tight electrons
-  select Pt(ELE) > 30.0 	 # hard pT
-  #excluding transition region betwwen barrel and endcaps of EM Calo
-  select lep_ptcone30(ELE)/lep_pt(ELE) <   0.15
-  select AbsEta(ELE) <  2.47 && AbsEta(ELE) ][ 1.37 1.52 
-  select lep_etcone20(ELE)/lep_pt(ELE) <   0.15     
+  select lep_isTightID(ELE) == 1 
+  select Pt(ELE) > 25.0
+  select AbsEta(ELE) < 2.47
+  select AbsEta(ELE) ][ 1.37 1.52   
+  select lep_ptcone30(ELE)/lep_pt(ELE) <   0.15       
+  select lep_etcone20(ELE)/lep_pt(ELE) <   0.15      
   select Abs(lep_trackd0pvunbiased(ELE))/lep_tracksigd0pvunbiased(ELE) < 5.0
-  select Abs(lep_z0(ELE))*sin(Theta(ELE))< 0.5
+  select Abs(lep_z0(ELE))*sin(theta(ELE))< 0.5
 
 object goodMuos
   take MUO
-  select lep_isTight(MUO) == 1
-  select Pt(MUO) > 30.0                 
+  select lep_isTightID(MUO) == 1 
+  select Pt(MUO) > 25.0
   select AbsEta(MUO) < 2.5 
-  select lep_ptcone30(MUO)/lep_pt(MUO) <   0.15
+  select lep_ptcone30(MUO)/lep_pt(MUO) <   0.15       
   select lep_etcone20(MUO)/lep_pt(MUO) <   0.15      
   select Abs(lep_trackd0pvunbiased(MUO))/lep_tracksigd0pvunbiased(MUO) < 3.0
-  select Abs(lep_z0(MUO)*sin(Theta(MUO))) < 0.5
+  select Abs(lep_z0(MUO)*sin(theta(MUO))) < 0.5
 
-object goodLepts
-    take Union(goodEles, goodMuos)
+object goodLepts : Union(goodEles, goodMuos)
 
 # WEIGHTING
-define SF = scaleFactor_ELE*scaleFactor_MUON*scaleFactor_LepTRIGGER*scaleFactor_PILEUP
+define sfc = scaleFactor_ELE*scaleFactor_MUON*scaleFactor_LepTRIGGER*scaleFactor_PILEUP
 define Lumi = 10064.0
-define mcMcWeight = HSTEP(channelNumber > 310000) * mcWeight*Lumi*XSection*SF/SumWeights 
+define mcMcWeight = HSTEP(channelNumber > 310000) * mcWeight*Lumi*XSection*sfc/SumWeights 
 define dataWeight = HSTEP(channelNumber < 310000) * 1.0
 define totalWeight = dataWeight + mcMcWeight
 
-# EVENT VARIABLE DEFINITIONS 
+## EVENT VARIABLE DEFINITIONS
 
-define leadLept = goodLepts[0]         # Leading lepton
-define subleadLept = goodLepts[1]      # Subleading lepton
-define Zll = leadLept + subleadLept    # Reconstructed Z Boson
-deine mLL = m(Zll)
+define leadLept = goodLepts[0]
+define subleadLept = goodLepts[1]
+define Zll = leadLept subleadLept
+define mLL = m(Zll)
 
 ## EVENT SELECTION
-region init     # initiate analysis and defined-objects
+region init
   select ALL
-  weight evtWeight totalWeight
   select Size(goodEles) >= 0
   select Size(goodMuos) >= 0
   select Size(goodLepts) >= 0
@@ -59,18 +57,20 @@ region init     # initiate analysis and defined-objects
 
 region Zll
   init
-  select trigE == 1 || trigM == 1 
+  weight evtWeight totalWeight
+  select trigE == 1 || trigM == 1
   select Size(goodLepts) == 2
   select Size(JET) == 0
   select q(leadLept)*q(subleadLept) < 0
-  select Abs(pdgID(leadLept)) == Abs(pdgID(subleadLept)) # leptons of same flavour
-  select m(Zll) [] 66 116           
+  select Abs(pdgID(leadLept)) == Abs(pdgID(subleadLept))
+  select mLL [] 66 116           
 
-  # Global variables histograms
+  # HISTOGRAMMING
+  # Global Variables
   histo hist_mLL, "Mass of Dilepton System; m_{#ell#ell} [GeV];Events / bin", 30, 68, 114, m(Zll)
   histo hist_etmiss, "Missing Transverse Momentum;E_{T}^{miss} [GeV];Events / bin", 20, 0,200, MET
 
-  # Leading Lepton histograms
+  # Leading Lepton Variables
   histo hist_leadleptpt    , "Leading Lepton Transverse Momentum;p_{T}^{leadlep} [GeV];Events / bin", 20, 0, 200,Pt(leadLept)
   histo hist_leadlepteta   , "Leading Lepton Pseudorapidity; #eta^{leadlep}; Events / bin", 30, -3, 3, Eta(leadLept)
   histo hist_leadleptE     , "Leading Lepton Energy; E^{leadlep} [GeV]; Events / bin", 30, 0, 300, E(leadLept)
@@ -78,7 +78,7 @@ region Zll
   histo hist_leadleptch    , "Leading Lepton Charge; Q^{leadlep}; Events / bin", 7, -1.75, 1.75, q(leadLept)
   histo hist_leadleptID    , "Leading Lepton Absolute PDG ID; |PDG ID|^{leadlep}; Events / bin",  15, 5.5, 20.5, abs(pdgID(leadLept))
 
-  # Subleading Lepton histograms
+  # Subleading Lepton Variables
   histo hist_subleadleptpt , "Subleading Lepton Transverse Momentum;p_{T}^{traillep} [GeV];Events / bin", 20, 0, 200, Pt(subleadLept)
   histo hist_subleadlepteta, "Subleading Lepton Pseudorapidity; #eta^{traillep}; Events / bin", 30, -3, 3, Eta(subleadLept)
   histo hist_subleadleptE  , "Subleading Lepton Energy; E^{traillep} [GeV]; Events / bin", 30, 0, 300, E(subleadLept)
@@ -88,10 +88,10 @@ region Zll
 
 region Zee
   Zll
-  select abs(pdgID(leadLept)) == 11
-  histo hist_ee_mLL, "Mass of Dilepton(ee) System; m_{ee} [GeV];Events / bin", 30, 68, 114, m(Zll)
+  select Abs(pdgID(leadLept)) == 11
+  histo hist_ee_mLL, "Mass of Dilepton(ee) System; m_{ee} [GeV];Events / bin", 30, 68, 114, mLL
 
-region Zmumu
+region Zmm
   Zll
-  select abs(pdgID(leadLept)) == 13
-  histo hist_mumu_mLL, "Mass of Dilepton(#mu#mu) System; m_{#mu#mu} [GeV];Events / bin", 30, 68, 114, m(Zll)
+  select Abs(pdgID(leadLept)) == 13
+  histo hist_mumu_mLL, "Mass of Dilepton(#mu#mu) System; m_{#mu#mu} [GeV];Events / bin", 30, 68, 114, mLL
