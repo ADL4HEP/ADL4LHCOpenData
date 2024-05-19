@@ -14,50 +14,38 @@ SkipHistos = 1
 object goodEles
   take ELE
   select lep_isTightID(ELE) == 1 
-  select lep_pt(ELE) > 35000.0
+  select Pt(ELE) > 35.0
+  select AbsEta(ELE) <   2.47        
+  select AbsEta(ELE) ][ 1.37 1.52   
   select lep_ptcone30(ELE)/lep_pt(ELE) <   0.1      
   select lep_etcone20(ELE)/lep_pt(ELE) <   0.1      
-  select abs(lep_eta(ELE)) <   2.47        
-  select abs(lep_eta(ELE)) ][ 1.37 1.52   
   select Abs(lep_trackd0pvunbiased(ELE))/lep_tracksigd0pvunbiased(ELE) < 5.0
-  select Abs(lep_z0(ELE))*sin(Theta(ELE))< 0.5
-# dz is Theta of the vector
+  select Abs(lep_z0(ELE))*sin(theta(ELE))< 0.5
 
 object goodMuos
   take MUO
   select lep_isTightID(MUO) == 1 
-  select lep_pt(MUO) > 35000.0                  
+  select Pt(MUO) > 35.0
+  select AbsEta(MUO) < 2.5 
   select lep_ptcone30(MUO)/lep_pt(MUO) <   0.1       
   select lep_etcone20(MUO)/lep_pt(MUO) <   0.1      
-  select abs(lep_eta(MUO)) < 2.5 
   select Abs(lep_trackd0pvunbiased(MUO))/lep_tracksigd0pvunbiased(MUO) < 3.0
-  select Abs(lep_z0(MUO)*sin(dz(MUO))) < 0.5
+  select Abs(lep_z0(MUO)*sin(theta(MUO))) < 0.5
 
 object goodLepts : Union(goodEles, goodMuos)
 
-define leadLept = goodLeps[0]
-
-define mtw = sqrt(2*Pt(leadLept)*MET*(1 - cos(dPhi(leadLept, METLV[0]))))
-
-## VARIABLE DEFINITIONS
-
+## WEIGHTING VARIABLES
+define sfc = scaleFactor_ELE*scaleFactor_MUON*scaleFactor_LepTRIGGER*scaleFactor_PILEUP
 define Lumi = 10064.0
-define SFactor = scaleFactor_ELE*scaleFactor_MUON*scaleFactor_LepTRIGGER*scaleFactor_PILEUP
-define totWeight =  mcWeight*SFactor*XSection*Lumi/SumWeights
-define totWeightAuto = HSTEP(channelNumber < 310000) * 1 + HSTEP(channelNumber > 310000) * totWeight 
+define mcMcWeight = HSTEP(channelNumber > 310000) * mcWeight*Lumi*XSection*sfc/SumWeights 
+define dataWeight = HSTEP(channelNumber < 310000) * 1.0
+define totalWeight = dataWeight + mcMcWeight
 
-## HISTOGRAM DEFINITONS
-
-histoList allHistos
-  histo hleadleptPt, "Lepton Transverse Momentum;p_{T}^{lep} [GeV];Events / bin", 20, 0.0 , 200.0 , Pt(leadLep)
-  histo hleadleptEta,"Lepton Pseudorapidity; #eta^{lep}; Events / bin", 30, -3.0, 3.0, Eta(leadLep)
-  histo hleadleptPhi, "Lepton Azimuthal Angle ; #phi^{lep}; Events / bin", 32, -3.2, 3.2, Phi(leadLep)
-  histo hleadleptE, "Lepton Energy; E^{lep} [GeV]; Events / bin", 30, 0.0, 300.0, E(leadLep)
-  histo hjetsN, "Number of Jets;N_{jets};Events", 6, -0.5, 5.5, Size(JET)
-  histo hmissEt, "Missing Transverse Momentum;E_{T}^{miss} [GeV];Events / bin" , 30, 0.0, 200.0, MET
+define leadLept = goodLepts[0]
+define mtw = sqrt(2*Pt(leadLept)*MET*(1 - cos(dPhi(leadLept, METLV[0]))))
+define ptisovar = lep_ptcone30(leadLept)/lep_pt(leadLept)
 
 ## EVENT SELECTION
-
 region init
   select ALL
   select Size(goodEles) >= 0
@@ -67,21 +55,35 @@ region init
  
 region Wlnu
   init
-  weight myweight totWeightAuto
+  weight evtWeight totalWeight
   select trigE == 1 || trigM == 1
-  select MET > 30000  
-  select Size(goodLeps) == 1
+  select MET > 30.0  
+  select Size(goodLepts) == 1
   select mtw > 60.0
-  histo hlnuMt, "Transverse Mass; M^{W #rightarrow #ell#nu}_{T} [GeV];Events / bin", 40 , 39.0 , 180.0, mtw
-  allHistos
+  
+  ## Global variables
+  histo hist_etmiss   , "Missing Transverse Momentum;E_{T}^{miss} [GeV];Events / bin", 30, 0, 200, MET
+  histo hist_mtw      , "Transverse Mass; M^{W}_{T} [GeV];Events / bin", 40, 39, 180, mtw
+  
+  #  Leading jet variables
+  histo hist_n_jets      , "Number of Jets;N_{jets};Events", 6, -0.5, 5.5, Size(JET)
+  histo hist_leadjet_pt  , "Leading Jet Transverse Momentum;p_{T}^{jet} [GeV];Events / bin", 20, 0, 120, Pt(JET)
+  histo hist_leadjet_eta , "Leading Jet Pseudorapidity; #eta^{jet}; Events / bin", 30, -3, 3, Eta(JET)
+
+  # Leading lepton variables
+  histo hist_leadleptpt  , "Lepton Transverse Momentum;p_{T}^{lep} [GeV];Events / bin", 20, 0, 200, Pt(leadLept)
+  histo hist_leadlepteta , "Lepton Pseudorapidity; #eta^{lep}; Events / bin", 30, -3, 3, Eta(leadLept)
+  histo hist_leadleptE   , "Lepton Energy; E^{lep} [GeV]; Events / bin", 30, 0, 300, E(leadLept)
+  histo hist_leadleptphi , "Lepton Azimuthal Angle ; #phi^{lep}; Events / bin", 32, -3.2, 3.2, Phi(leadLept)
+  histo hist_leadleptch  , "Lepton Charge; Q^{lep}; Events / bin", 7, -1.75, 1.75, q(leadLept)
+  histo hist_leadleptID  , "Lepton Absolute PDG ID; |PDG ID|^{lep}; Events / bin",  15, 5.5, 20.5, Abs(pdgID(leadLept))
 
 region Wenu
   Wlnu
-  select Abs(pdgID(leadLep)) == 11
-  histo henuMt, "Transverse Mass; M^{W #rightarrow e#nu}_{T} [GeV];Events / bin", 40 , 39.0 , 180.0, mtw
+  select Abs(pdgID(leadLept)) == 11
+  histo hist_mtw_enu  , "Transverse Mass; M^{W #rightarrow e#nu}_{T} [GeV];Events / bin", 40, 39, 180, mtw
 
 region Wmunu
   Wlnu
-  select Abs(pdgID(leadLep)) == 13
-  histo hmunuMt, "Transverse Mass; M^{W #rightarrow #mu#nu}_{T} [GeV];Events / bin", 40, 39.0, 180.0, mtw
-
+  select Abs(pdgID(leadLept)) == 13
+  histo hist_mtw_munu , "Transverse Mass; M^{W #rightarrow #mu#nu}_{T} [GeV];Events / bin", 40, 39, 180, mtw
