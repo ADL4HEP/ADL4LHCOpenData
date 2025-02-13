@@ -1,0 +1,288 @@
+info analysis
+  title "Review of the 13 TeV ATLAS Open Data release"
+  experiment ATLAS
+  id "ATLOREACH-PUB-2020-001"
+  publication " EPJ Web Conf., 245 (2020) 08026"
+  sqrtS 13.0
+  lumi 10000
+  doi "10.1051/epjconf/202024508026"
+
+#   Analysis Name : SUSYAnalysis
+#   Author : Kagan Sahan
+#   Units in GeV
+#   Datatier : ATLASODR2
+
+
+SkipHistos = 1 
+
+#### WORKING POINTS OF MV2c10 (B-TAGGING ALGORITHM)
+define MV2c10WP77 = 0.645925
+define MV2c10WP85 = 0.1758475
+
+### OBJECT DEFINITIONS
+
+## BASELINE OBJECT DEFINITIONS
+object baselineEles
+    take ELE
+    select Pt(ELE) > 10
+    select AbsEta(ELE) < 2.47
+
+object baselineMuos
+    take MUO
+    select Pt(MUO) > 10
+    select AbsEta(MUO) < 2.7
+
+object baselineLepts
+  take Union(baselineEles, baselineMuos)
+
+#object baselineJets
+#    take JET
+#    select Pt(JET) > 20
+#    select AbsEta(JET) < 4.5
+#    select (Pt(JET) < 60 && AbsEta(JET) < 2.4) ? jet_jvt(JET) > 0.59 : ALL
+
+object baselinebJets
+    take JET
+    select Pt(JET) > 20
+    select AbsEta(JET) < 4.5
+    select (Pt(JET) < 60 && AbsEta(JET) < 2.4) ? jet_jvt(JET) > 0.59 : ALL
+    select jet_MV2c10(JET) > 0.1758475
+
+object baselineJets
+    take JET
+    select Pt(JET) > 20
+    select AbsEta(JET) < 4.5
+    select (Pt(JET) < 60 && AbsEta(JET) < 2.4) ? jet_jvt(JET) > 0.59 : ALL
+    select jet_MV2c10(JET) < 0.1758475
+
+object cleanElesA
+    take baselineEles
+    select dR(baselineEles, baselineBJets) > 0.2
+
+object cleanNonBJetsA
+    take baselineNonBJets
+    select dR(baselineNonBJets, baselineEles) > 0.2
+
+object cleanElesB
+    take cleanElesA
+    select dR(cleanElesA, baselineBJets) > 0.4
+    select dR(cleanElesA, cleanNonBJetsA) > 0.4
+
+object cleanMuos
+    take baselineMuos
+    select dR(baselineMuos, baselineBJets) > 0.4
+    select dR(baselineMuos, cleanNonBJetsA) > 0.4
+
+object signalEles
+    take cleanElesB
+    select Abs(lep_z0(cleanElesB))*sin(Theta(cleanElesB))< 0.5
+    select lep_ptcone30(cleanElesB)/lep_pt(cleanElesB) < 0.15 
+    select lep_etcone20(cleanElesB)/lep_pt(cleanElesB) < 0.15 
+    select Abs(lep_trackd0pvunbiased(cleanElesB))/lep_tracksigd0pvunbiased(cleanElesB) < 5.0
+
+object signalMuos
+    take cleanMuos
+    select Abs(lep_z0(cleanMuos))*sin(Theta(cleanMuos))< 0.5
+    select lep_ptcone30(cleanMuos)/lep_pt(cleanMuos) < 0.15 
+    select lep_etcone20(cleanMuos)/lep_pt(cleanMuos) < 0.15 
+    select Abs(lep_trackd0pvunbiased(cleanMuos))/lep_tracksigd0pvunbiased(cleanMuos) < 3.0
+
+object signalLepts : Union(signalEles, signalMuos)
+
+object signalJets : Union(cleanNonBJetsA, baselineBJets)
+
+object signalLightJetsPt60
+    take signalJets
+    select Pt(signalJets) > 60
+    select jet_MV2c10(signalJets) < 0.645925
+
+object signalbJetsPt20
+    take signalJets
+    select Pt(signalJets) > 20
+    select jet_MV2c10(signalJets) > 0.645925
+
+object vetobJets
+    take baselineBJets
+    select Pt(baselineBJets) > 60 && jet_MV2c10(baselineBJets) < 0.645925
+    select Pt(baselineBJets) > 20 && jet_MV2c10(baselineBJets) > 0.645925
+
+object vetoJets
+    take cleanNonBJetsA
+    select Pt(cleanNonBJetsA) > 60 && jet_MV2c10(cleanNonBJetsA) < 0.645925
+    select Pt(cleanNonBJetsA) > 20 && jet_MV2c10(cleanNonBJetsA) > 0.645925
+
+# WEIGHTING
+define SF = scaleFactor_ELE*scaleFactor_MUON*scaleFactor_LepTRIGGER*scaleFactor_PILEUP
+define Lumi = 10064.0
+define stopWeight = 1.0
+define mcMcWeight = HSTEP(channelNumber > 310000) * mcWeight*Lumi*XSection*SF/SumWeights 
+define dataWeight = HSTEP(channelNumber < 310000) * 1.0
+define autoWeight = dataWeight + mcMcWeight
+
+
+## EVENT VARIABLES
+
+# Define the number of veto jets and signal jets
+define vetobjetn = Size(vetobJets)           # Count the number of veto objects (jets) present
+define vetojetn = Size(vetoJets)              # Count the number of veto jets
+define signalleptn = Size(signalLepts)       # Count the number of signal leptons (e.g., electrons, muons)
+define signaljetn = Size(signalJets)          # Count the number of signal jets
+
+# Define leading and subleading leptons based on their specific indices
+define leadLept = signalLeps[0]              # The leading lepton (highest pT) at index 0
+define subleadLept = signalLeps[1]           # The subleading lepton (second highest pT) at index 1
+
+# Calculate the invariant mass of the two leading leptons
+define mLL = m(leadLept, subleadLept)
+
+# Calculate MT2 (transverse mass) using the leading lepton, subleading lepton, and missing transverse energy (MET)
+define MT2 = fMT2(leadLept, subleadLept, METLV[0])  # MT2 calculation, important for analyses involving MET
+
+# Define criteria for lepton flavor and charge combinations
+define isSF = HSTEP(Abs(PDGID(leadLept)) == Abs(PDGID(subleadLept)))  # check if both leptons are of the same flavour
+define isDF = HSTEP(Abs(PDGID(leadLept)) != Abs(PDGID(subleadLept)))  # check if leptons are of different flavour
+define isOS = HSTEP(q(leadLept) * q(subleadLept) < 0)                 # check if leptons have opposite charges
+
+# Define a flag for same flavor and opposite sign leptons
+# True if both conditions (same flavor and opposite sign) are satisfied
+define isSFOS = isSF * isOS  
+
+### Initilaziation
+region init
+    select ALL
+
+    select Size(baselineEles) >= 0 
+    select Size(baselineMuos) >= 0
+    select Size(baselineLeps) >= 0
+    sort Pt(baselineLeps) descend
+
+    select Size(baselineBJets) >= 0
+    select Size(baselineNonBJets) >= 0
+
+    select Size(cleanElesA) >= 0
+    select Size(cleanNonBJetsA) >= 0
+    select Size(cleanElesB) >= 0
+    select Size(cleanMuos) >= 0
+
+    select Size(signalEles)  >= 0
+    select Size(signalMuos)  >= 0
+    select Size(signalJets)  >= 0
+
+    select Size(vetoJets) >= 0
+    select Size(vetobJets) >= 0
+
+### EVENT SELECTION
+region precut
+  init
+  weight myweight autoWeight
+  seelct
+  select trigE == 1 || trigM == 1
+  select signaleptn == 2            #
+
+region SFOS
+    init
+    select signalleptn == 2
+    select Pt(leadLept) > 25
+    select Pt(subleadLept) > 20
+    select isSFOS == 1
+
+  # Leading Lepton histograms
+  histo hist_leadleptpt_SFOS,   "Lepton Transverse Momentum;p_{T}^{lep} [GeV];Events / bin", 20, 0, 200, Pt(leadLept)
+  histo hist_leadlepteta_SFOS,  "Lepton Pseudorapidity; #eta^{lep}; Events / bin", 30, -3, 3, Eta(leadLept)
+  histo hist_leadleptE_SFOS,    "Lepton Energy; E^{lep} [GeV]; Events / bin", 30, 0, 300, E(leadLept)
+  histo hist_leadleptphi_SFOS,  "Lepton Azimuthal Angle ; #phi^{lep}; Events / bin", 32, -3.2, 3.2, Phi(leadLept)
+  histo hist_leadleptch_SFOS,   "Lepton Charge; Q^{lep}; Events / bin", 7, -1.75, 1.75, q(leadLept)
+  histo hist_leadleptID_SFOS,   "Lepton Absolute PDG ID; |PDG ID|^{lep}; Events / bin",  15, 5.5, 20.5, Abs(pdgID(leadLept))
+  histo hist_leadlept_ptc_SFOS, "Lepton Relative Transverse Momentum Isolation; ptconerel30^{leadlep}; Events / bin", 20, -0.1, 0.2, lep_ptcone30(leadLept)
+  histo hist_leadleptetc_SFOS,  "Lepton Relative Transverse Energy Isolation; etconerel20^{leadlep}; Events / bin", 20, -0.1, 0.2, lep_etcone20(leadLept)
+  histo hist_leadlepz0_SFOS,    "Lepton longitudinal impact parameter; z_{0}^{lep} [mm]; Events / bin", 20, -1, 1, lep_z0(leadLept)
+  histo hist_leadlepd0_SFOS,    "Lepton transverse impact parameter; d_{0}^{lep} [mm]; Events / bin", 20, -5, 5, lep_trackd0pvunbiased(leadLept)
+  
+  # Subleading lepton histograms
+  histo hist_subleadleptpt_SFOS,   "Lepton Transverse Momentum;p_{T}^{lep} [GeV];Events / bin", 20, 0, 200, Pt(subleadLept)
+  histo hist_subleadlepteta_SFOS,  "Lepton Pseudorapidity; #eta^{lep}; Events / bin", 30, -3, 3, Eta(subleadLept)
+  histo hist_subleadleptE_SFOS,    "Lepton Energy; E^{lep} [GeV]; Events / bin", 30, 0, 300, E(subleadLept)
+  histo hist_subleadleptphi_SFOS,  "Lepton Azimuthal Angle ; #phi^{lep}; Events / bin", 32, -3.2, 3.2, Phi(subleadLept)
+  histo hist_subleadleptch_SFOS,   "Lepton Charge; Q^{lep}; Events / bin", 7, -1.75, 1.75, q(subleadLept)
+  histo hist_subleadleptID_SFOS,   "Lepton Absolute PDG ID; |PDG ID|^{lep}; Events / bin",  15, 5.5, 20.5, Abs(pdgID(subleadLept))
+  histo hist_subleadlept_ptc_SFOS, "Lepton Relative Transverse Momentum Isolation; ptconerel30^{leadlep}; Events / bin", 20, -0.1, 0.2, lep_ptcone30(subleadLept)
+  histo hist_subleadleptetc_SFOS,  "Lepton Relative Transverse Energy Isolation; etconerel20^{leadlep}; Events / bin", 20, -0.1, 0.2, lep_etcone20(subleadLept)
+  histo hist_subleadlepz0_SFOS,    "Lepton longitudinal impact parameter; z_{0}^{lep} [mm]; Events / bin", 20, -1, 1, lep_z0(subleadLept)
+  histo hist_subleadlepd0_SFOS,    "Lepton transverse impact parameter; d_{0}^{lep} [mm]; Events / bin", 20, -5, 5, lep_trackd0pvunbiased(subleadLept)
+
+
+region SR2loose
+    init
+    select Size(signalLeps) == 2
+    select Pt(leadLept) > 25
+    select Pt(subleadLept) > 20
+    select isSFOS == 1
+    select MT2 > 100
+    select mLL > 111
+
+    # Global Histograms
+    histo histmLL_SR2_loose, "Mass of Dilepton System; m_{ll} [GeV];Events / bin", 20, 0, 500, mLL
+    histo histetmiss_SR2_loose, "Missing Transverse Momentum;E_{T}^{miss} [GeV];Events / bin", 20, 0, 2000, MET
+    histo histmt2_SR2_loose, "Stransverse Mass; M_{T2} [GeV]; Events / bin", 20, 0, 400, MT2
+    histo histrebin_etmiss_SR2_loose, "Missing Transverse Momentum;E_{T}^{miss} [GeV];Events / bin", 10, 0, 300, MET
+
+    # Leading Lepton histograms
+    histo hist_leadleptpt_loose,   "Lepton Transverse Momentum;p_{T}^{lep} [GeV];Events / bin", 20, 0, 200, Pt(leadLept)
+    histo hist_leadlepteta_loose,  "Lepton Pseudorapidity; #eta^{lep}; Events / bin", 30, -3, 3, Eta(leadLept)
+    histo hist_leadleptE_loose,    "Lepton Energy; E^{lep} [GeV]; Events / bin", 30, 0, 300, E(leadLept)
+    histo hist_leadleptphi_loose,  "Lepton Azimuthal Angle ; #phi^{lep}; Events / bin", 32, -3.2, 3.2, Phi(leadLept)
+    histo hist_leadleptch_loose,   "Lepton Charge; Q^{lep}; Events / bin", 7, -1.75, 1.75, q(leadLept)
+    histo hist_leadleptID_loose,   "Lepton Absolute PDG ID; |PDG ID|^{lep}; Events / bin",  15, 5.5, 20.5, Abs(pdgID(leadLept))
+    histo hist_leadlept_ptc_loose, "Lepton Relative Transverse Momentum Isolation; ptconerel30^{leadlep}; Events / bin", 20, -0.1, 0.2, lep_ptcone30(leadLept)
+    histo hist_leadleptetc_loose,  "Lepton Relative Transverse Energy Isolation; etconerel20^{leadlep}; Events / bin", 20, -0.1, 0.2, lep_etcone20(leadLept)
+    histo hist_leadlepz0_loose,    "Lepton longitudinal impact parameter; z_{0}^{lep} [mm]; Events / bin", 20, -1, 1, lep_z0(leadLept)
+    histo hist_leadlepd0_loose,    "Lepton transverse impact parameter; d_{0}^{lep} [mm]; Events / bin", 20, -5, 5, lep_trackd0pvunbiased(leadLept)
+    
+    # Subleading lepton histograms
+    histo hist_subleadleptpt_loose,   "Lepton Transverse Momentum;p_{T}^{lep} [GeV];Events / bin", 20, 0, 200, Pt(subleadLept)
+    histo hist_subleadlepteta_loose,  "Lepton Pseudorapidity; #eta^{lep}; Events / bin", 30, -3, 3, Eta(subleadLept)
+    histo hist_subleadleptE_loose,    "Lepton Energy; E^{lep} [GeV]; Events / bin", 30, 0, 300, E(subleadLept)
+    histo hist_subleadleptphi_loose,  "Lepton Azimuthal Angle ; #phi^{lep}; Events / bin", 32, -3.2, 3.2, Phi(subleadLept)
+    histo hist_subleadleptch_loose,   "Lepton Charge; Q^{lep}; Events / bin", 7, -1.75, 1.75, q(subleadLept)
+    histo hist_subleadleptID_loose,   "Lepton Absolute PDG ID; |PDG ID|^{lep}; Events / bin",  15, 5.5, 20.5, Abs(pdgID(subleadLept))
+    histo hist_subleadlept_ptc_loose, "Lepton Relative Transverse Momentum Isolation; ptconerel30^{leadlep}; Events / bin", 20, -0.1, 0.2, lep_ptcone30(subleadLept)
+    histo hist_subleadleptetc_loose,  "Lepton Relative Transverse Energy Isolation; etconerel20^{leadlep}; Events / bin", 20, -0.1, 0.2, lep_etcone20(subleadLept)
+    histo hist_subleadlepz0_loose,    "Lepton longitudinal impact parameter; z_{0}^{lep} [mm]; Events / bin", 20, -1, 1, lep_z0(subleadLept)
+    histo hist_subleadlepd0_loose,    "Lepton transverse impact parameter; d_{0}^{lep} [mm]; Events / bin", 20, -5, 5, lep_trackd0pvunbiased(subleadLept)
+
+region SR2tight
+    init
+    select isSFOS == 1
+    select MT2 > 130
+    select mLL > 300
+
+    histo histmLL_SR2_tight, "Mass of Dilepton System; m_{ll} [GeV];Events / bin", 20, 0, 500, mLL
+    histo histetmiss_SR2_tight, "Missing Transverse Momentum;E_{T}^{miss} [GeV];Events / bin", 20, 0, 2000, MET
+    histo histmt2_SR2_tight, "Stransverse Mass; M_{T2} [GeV]; Events / bin", 20, 0, 400, MT2
+    histo histrebin_etmiss_SR2_tight, "Missing Transverse Momentum;E_{T}^{miss} [GeV];Events / bin", 10, 0, 300, MET
+
+    # Leading Lepton histograms
+    histo hist_leadleptpt_tight,   "Lepton Transverse Momentum;p_{T}^{lep} [GeV];Events / bin", 20, 0, 200, Pt(leadLept)
+    histo hist_leadlepteta_tight,  "Lepton Pseudorapidity; #eta^{lep}; Events / bin", 30, -3, 3, Eta(leadLept)
+    histo hist_leadleptE_tight,    "Lepton Energy; E^{lep} [GeV]; Events / bin", 30, 0, 300, E(leadLept)
+    histo hist_leadleptphi_tight,  "Lepton Azimuthal Angle ; #phi^{lep}; Events / bin", 32, -3.2, 3.2, Phi(leadLept)
+    histo hist_leadleptch_tight,   "Lepton Charge; Q^{lep}; Events / bin", 7, -1.75, 1.75, q(leadLept)
+    histo hist_leadleptID_tight,   "Lepton Absolute PDG ID; |PDG ID|^{lep}; Events / bin",  15, 5.5, 20.5, Abs(pdgID(leadLept))
+    histo hist_leadlept_ptc_tight, "Lepton Relative Transverse Momentum Isolation; ptconerel30^{leadlep}; Events / bin", 20, -0.1, 0.2, lep_ptcone30(leadLept)
+    histo hist_leadleptetc_tight,  "Lepton Relative Transverse Energy Isolation; etconerel20^{leadlep}; Events / bin", 20, -0.1, 0.2, lep_etcone20(leadLept)
+    histo hist_leadlepz0_tight,    "Lepton longitudinal impact parameter; z_{0}^{lep} [mm]; Events / bin", 20, -1, 1, lep_z0(leadLept)
+    histo hist_leadlepd0_tight,    "Lepton transverse impact parameter; d_{0}^{lep} [mm]; Events / bin", 20, -5, 5, lep_trackd0pvunbiased(leadLept)
+    
+    # Subleading lepton histograms
+    histo hist_subleadleptpt_tight,   "Lepton Transverse Momentum;p_{T}^{lep} [GeV];Events / bin", 20, 0, 200, Pt(subleadLept)
+    histo hist_subleadlepteta_tight,  "Lepton Pseudorapidity; #eta^{lep}; Events / bin", 30, -3, 3, Eta(subleadLept)
+    histo hist_subleadleptE_tight,    "Lepton Energy; E^{lep} [GeV]; Events / bin", 30, 0, 300, E(subleadLept)
+    histo hist_subleadleptphi_tight,  "Lepton Azimuthal Angle ; #phi^{lep}; Events / bin", 32, -3.2, 3.2, Phi(subleadLept)
+    histo hist_subleadleptch_tight,   "Lepton Charge; Q^{lep}; Events / bin", 7, -1.75, 1.75, q(subleadLept)
+    histo hist_subleadleptID_tight,   "Lepton Absolute PDG ID; |PDG ID|^{lep}; Events / bin",  15, 5.5, 20.5, Abs(pdgID(subleadLept))
+    histo hist_subleadlept_ptc_tight, "Lepton Relative Transverse Momentum Isolation; ptconerel30^{leadlep}; Events / bin", 20, -0.1, 0.2, lep_ptcone30(subleadLept)
+    histo hist_subleadleptetc_tight,  "Lepton Relative Transverse Energy Isolation; etconerel20^{leadlep}; Events / bin", 20, -0.1, 0.2, lep_etcone20(subleadLept)
+    histo hist_subleadlepz0_tight,    "Lepton longitudinal impact parameter; z_{0}^{lep} [mm]; Events / bin", 20, -1, 1, lep_z0(subleadLept)
+    histo hist_subleadlepd0_tight,    "Lepton transverse impact parameter; d_{0}^{lep} [mm]; Events / bin", 20, -5, 5, lep_trackd0pvunbiased(subleadLept)
+
+
