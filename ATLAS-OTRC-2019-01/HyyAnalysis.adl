@@ -1,0 +1,43 @@
+info analysis
+  title "Review of the 13 TeV ATLAS Open Data release"
+  experiment ATLAS
+  id "ATLOREACH-PUB-2020-001"
+  publication " EPJ Web Conf., 245 (2020) 08026"
+  sqrtS 13.0
+  lumi 10000
+  doi "10.1051/epjconf/202024508026"
+
+SkipHistos = 1
+
+object goodPhotons
+    take PHO
+    select photon_isTightID(PHO) == 1
+    select photon_pt(PHO) > 25000.0
+    select photon_eta(PHO) < 2.37 && (photon_eta(PHO) <  1.37 || photon_eta(PHO) > 1.52)
+    select photon_ptcone30(PHO)/photon_pt(PHO) < 0.065  # isolated photons
+    select photon_etcone20(PHO)/photon_pt(PHO) < 0.065  # isolated photons
+
+define photon1 = goodPhotons[0]
+define photon2 = goodPhotons[1]
+
+define myy  = sqrt( 2 * 0.001 * photon_pt(photon1) * 0.001 * photon_pt(photon2) * (cosh( dEta(photon1,photon2)) - cos(dPhi(photon1,photon2))))
+define photon1kin = 0.001*photon_pt(photon1)/myy
+define photon2kin = 0.001*photon_pt(photon2)/myy
+
+define scaleFactor = scaleFactor_PHOTON*scaleFactor_PhotonTRIGGER*scaleFactor_PILEUP
+define Lumi = 10064.0
+define simWeight =  HSTEP(channelNumber > 310000) * mcWeight*Lumi*XSection*scaleFactor/SumWeights 
+define dataWeight = HSTEP(channelNumber < 310000) * 1.0
+define autoWeight = dataWeight + simWeight
+
+region Hyy
+    select ALL
+    weight myweight autoWeight
+    select trigP == 1
+    select Size(goodPhotons) == 2
+    select photon1kin > 0.35 && photon2kin > 0.25
+    select myy > 105 && myy < 160
+    histo histmYYbin1 ,"Diphoton invariant mass; m_{#gamma#gamma} [GeV];Events / bin", 30, 105, 160, myy
+    select photon_convType(photon1) == 0 && AbsEta(photon1) < 0.75
+    select photon_convType(photon2) == 0 && AbsEta(photon2) < 0.75
+    histo histmYYcatbin1 ,"Diphoton invariant mass unconv. central; m_{#gamma#gamma} [GeV];Events / bin", 30, 105, 160, myy
