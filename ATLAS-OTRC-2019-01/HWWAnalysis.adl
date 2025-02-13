@@ -1,0 +1,150 @@
+info analysis
+  title "Review of the 13 TeV ATLAS Open Data release"
+  experiment ATLAS
+  id "ATLOREACH-PUB-2020-001"
+  publication " EPJ Web Conf., 245 (2020) 08026"
+  sqrtS 13.0
+  lumi 10000
+  doi "10.1051/epjconf/202024508026"
+
+SkipHistos = 1 
+
+define pi = 3.14159265359
+
+### OBJECT DEFINITIONS
+
+object goodEles
+  take ELE
+  select lep_isTight(ELE) == 1
+  select Pt(ELE) > 15.0
+  select AbsEta(ELE) <   2.47
+  select AbsEta(ELE) ][ 1.37 1.52
+  select lep_ptcone30(ELE)/lep_pt(ELE) <   0.1
+  select lep_etcone20(ELE)/lep_pt(ELE) <   0.1     
+  select Abs(lep_trackd0pvunbiased(ELE))/lep_tracksigd0pvunbiased(ELE) < 5.0
+  select Abs(lep_z0(ELE))*sin(Theta(ELE))< 0.5
+
+object goodMuos
+  take MUO
+  select lep_isTight(MUO) == 1
+  select Pt(MUO) > 15.0
+  select AbsEta(MUO) < 2.5 
+  select lep_ptcone30(MUO)/lep_pt(MUO) <   0.1
+  select lep_etcone20(MUO)/lep_pt(MUO) <   0.1      
+  select Abs(lep_trackd0pvunbiased(MUO))/lep_tracksigd0pvunbiased(MUO) < 3.0
+  select Abs(lep_z0(MUO)*sin(Theta(MUO))) < 0.5
+
+object goodLepts : Union(goodEles, goodMuos)
+
+object baselineJets
+  take JET
+  select Pt(JET) > 20.0
+  select AbsEta(JET) < 2.5
+  # JVT cleaning
+  reject Pt(JET) < 60.0 && ( AbsEta(JET) < 2.4 && jet_jvt(JET) < 0.59 )
+
+object goodbJets
+  take baselineJets
+  select jet_MV2c10(baselineJets) > 0.1758475
+
+object goodJets
+  take baselineJets
+  select Pt(baselineJets) > 30.0
+
+# WEIGHTING
+define SW = 55832659.6908*HSTEP(channelNumber == 345324) + 4389990.08913*HSTEP(channelNumber == 345323) + SumWeights*HSTEP(channelNumber != 345323 && channelNumber != 345324)
+define XSEC = 0.04*HSTEP(channelNumber == 345323) + 0.58*HSTEP(channelNumber == 345324) + XSection*HSTEP(channelNumber != 345323 && channelNumber != 345324)
+define SF = scaleFactor_ELE*scaleFactor_MUON*scaleFactor_LepTRIGGER*scaleFactor_PILEUP
+define Lumi = 10064.0
+define mcMcWeight = HSTEP(channelNumber > 310000) * mcWeight*Lumi*XSEC*SF/SW
+define dataWeight = HSTEP(channelNumber < 310000) * 1.0
+define totalWeight = dataWeight + mcMcWeight
+
+
+define METV = METLV[0]
+define leadLept = goodLepts[0]
+define subleadLept = goodLepts[1]
+define Lept12 = leadLept + subleadLept
+
+define mLL = m(Lept12)
+define ptLL = Pt(Lept12)
+define dPhiLL = dPhi(leadLept, subleadLept)
+
+define dPhiLLmet = dPhi(Lept12,METLV[0])
+define mT = sqrt(2*Pt(Lept12)*MET*(1 - cos(dPhi(Lept12, METLV[0]))))
+
+define mtleadLept = sqrt(2*Pt(leadLept)*MET*(1 - cos(dPhi(leadLept, METLV[0]))))
+define mtsubleadLept = sqrt(2*Pt(subleadLept)*MET*(1 - cos(dPhi(subleadLept, METLV[0]))))
+define maxMt = max(mtleadLept,mtsubleadLept)
+
+define ngoodJets = Size(goodJets)
+define ngoodbJets = Size(goodbJets)
+
+region init
+  select ALL
+  select Size(goodEles)  >= 0
+  select Size(goodMuos)  >= 0
+  select Size(goodLepts) >= 0
+  sort Pt(goodLepts) descend
+  select Size(baselineJets) >= 0
+  select Size(goodJets) >= 0
+  select Size(goodbJets) >= 0
+
+region precut
+  init
+  weight evtweight totalWeight
+  select trigE == 1 || trigM == 1 
+  select Size(goodLepts) == 2
+  select Pt(leadLept) > 22.0
+  select Pt(subleadLept) > 15.0
+  select Abs(pdgID(leadLept)) != Abs(pdgID(subleadLept))
+  select q(leadLept) * q(subleadLept) < 0
+  select Pt(METV) > 20.0
+
+  # pre-cut histograms
+  histo histI_mLL       , "Mass of Dilepton System; m_{ll} [GeV];Events / bin", 30, 0, 170, mLL
+  histo histI_ptLL      , "Transverse Momentum of Dilepton System; p_{T}^{ll} [GeV];Events / bin", 30, 0, 200, ptLL
+  histo histI_dPhi_LL   , "dPhi_LL Dilepton System; #Delta#phi (ll);Events / bin", 20, 0, 3.2, dPhiLL
+  histo histI_dPhiLLmet , "dPhiLLmet Dilepton System; #Delta#phi (ll,E_{T}^{miss});Events / bin", 30, 0, 3.2, dPhiLLmet
+  histo histI_etmiss    , "Missing Transverse Momentum;E_{T}^{miss} [GeV];Events / bin", 20, 0,200, MET
+  histo histI_mt        , "Dilepton System Transverse Mass; m_{T} [GeV];Events / bin", 15, 50, 200, mT
+  histo histI_n_jets    , "Number of Jets;N_{jets};Events / bin", 5, -0.5, 4.5, ngoodJets
+  histo histI_n_bjets   , "Number of b-Jets;N_{b-jets};Events / bin", 3, -0.5, 2.5, ngoodbJets
+
+
+
+region HWW
+  precut
+  select mLL []  10.0 55.0
+  select ngoodJets <= 1
+  select ngoodbJets == 0
+  select MET > 20
+  select dPhiLLmet > pi/2
+  select ptLL > 30
+  select dPhiLL < 1.8
+  
+  # Global variable histograms
+  histo hist_mLL           ,"Mass of Dilepton System; m_{ll} [GeV];Events / bin", 30, 0, 170, mLL
+  histo hist_ptLL          ,"Transverse Momentum of Dilepton System; p_{T}^{ll} [GeV];Events / bin", 30, 0, 200, ptLL
+  histo hist_dPhi_LL       ,"dPhi_LL Dilepton System; #Delta#phi (ll);Events / bin", 20, 0, 3.2, dPhiLL
+  histo hist_dPhiLLmet     ,"dPhiLLmet Dilepton System; #Delta#phi (ll,E_{T}^{miss});Events / bin", 30, 0, 3.2, dPhiLLmet
+  histo hist_etmiss        ,"Missing Transverse Momentum;E_{T}^{miss} [GeV];Events / bin", 20, 0,200, MET
+  histo hist_mt            ,"Dilepton System Transverse Mass; m_{T} [GeV];Events / bin", 15, 50, 200, mT
+  histo hist_n_jets        ,"Number of Jets;N_{jets};Events", 5, -0.5, 4.5, ngoodJets
+  histo hist_n_bjets       ,"Number of b-Jets;N_{b-jets};Events", 3, -0.5, 2.5, ngoodbJets
+
+  # Leading Lepton histograms
+  histo hist_leadleptpt,   "Lepton Transverse Momentum;p_{T}^{lep} [GeV];Events / bin", 20, 0, 200, Pt(leadLept)
+  histo hist_leadlepteta,  "Lepton Pseudorapidity; #eta^{lep}; Events / bin", 30, -3, 3, Eta(leadLept)
+  histo hist_leadleptE,    "Lepton Energy; E^{lep} [GeV]; Events / bin", 30, 0, 300, E(leadLept)
+  histo hist_leadleptphi,  "Lepton Azimuthal Angle ; #phi^{lep}; Events / bin", 32, -3.2, 3.2, Phi(leadLept)
+  histo hist_leadleptch,   "Lepton Charge; Q^{lep}; Events / bin", 7, -1.75, 1.75, q(leadLept)
+  histo hist_leadleptID,   "Lepton Absolute PDG ID; |PDG ID|^{lep}; Events / bin",  15, 5.5, 20.5, Abs(pdgID(leadLept))
+  
+  # Subleading lepton histograms
+  histo hist_subleadleptpt,   "Lepton Transverse Momentum;p_{T}^{lep} [GeV];Events / bin", 20, 0, 200, Pt(subleadLept)
+  histo hist_subleadlepteta,  "Lepton Pseudorapidity; #eta^{lep}; Events / bin", 30, -3, 3, Eta(subleadLept)
+  histo hist_subleadleptE,    "Lepton Energy; E^{lep} [GeV]; Events / bin", 30, 0, 300, E(subleadLept)
+  histo hist_subleadleptphi,  "Lepton Azimuthal Angle ; #phi^{lep}; Events / bin", 32, -3.2, 3.2, Phi(subleadLept)
+  histo hist_subleadleptch,   "Lepton Charge; Q^{lep}; Events / bin", 7, -1.75, 1.75, q(subleadLept)
+  histo hist_subleadleptID,   "Lepton Absolute PDG ID; |PDG ID|^{lep}; Events / bin",  15, 5.5, 20.5, Abs(pdgID(subleadLept))

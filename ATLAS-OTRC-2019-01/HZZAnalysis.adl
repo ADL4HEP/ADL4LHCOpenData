@@ -1,0 +1,82 @@
+#info analysis
+#  title Review of the 13 TeV ATLAS Open Data Release
+#  experiment ATLAS
+#  id PUB-OTRC-2020-01
+#  lumi 10 fb-1
+#  sqrts 13
+#  publication https://cds.cern.ch/record/2707171
+
+object goodEles 
+  take ELE
+  select Pt(ELE) > 7.0                          # with loose pT criteria
+  select lep_ptcone30(ELE)/lep_pt(ELE) < 0.3    # calorimeter isolation
+  select lep_etcone20(ELE)/lep_pt(ELE) < 0.3    # tracking isolation
+
+object goodMuos
+  take MUO
+  select Pt(MUO) > 7.0                          # with loose pT criteria
+  select lep_ptcone30(MUO)/lep_pt(MUO) < 0.3    # tracking isolation
+  select lep_etcone20(MUO)/lep_pt(MUO) < 0.3    # tracking isolation
+
+object goodLepts : Union(goodEles,goodMuos)
+
+define Lepton1 = goodLepts[-1]
+define Lepton2 = goodLepts[-2]
+define Lepton3 = goodLepts[-3]
+define Lepton4 = goodLepts[-4]
+ 
+define Lepton12 = Lepton1 Lepton2
+define Lepton34 = Lepton3 Lepton4
+define Lepton1234 = Lepton12 Lepton34
+
+define chi2Z1 = abs( m(Lepton12) - 91.18) + 999*pdgID(Lepton12)
+define chi2Z2 = abs( m(Lepton34) - 91.18) + 999*pdgID(Lepton34)
+
+# The charge and type of a particle can be determined using pdgID
+# If the pdgID values for two lepton pairs sum to zero, it indicates 
+# that they are same-flavor opposite-sign (SFOS) pairs
+# Only two SFOS lepton pairs will result in a sum of zero
+
+# If this variable is used after exactly four lepton selection
+define isSFOSall = HSTEP(sum(pdgID(goodLepts)) == 1)
+
+define isSFOS12 = HSTEP( pdgID(Lepton12) == 0)
+define isSFOS34 = HSTEP( pdgID(Lepton34) == 0) 
+ 
+region init
+ select ALL
+ select Size(goodEles) >= 0 
+ select Size(goodMuos) >= 0 
+ select Size(goodLepts) >= 0
+ sort Pt(goodLepts) descend
+
+region HZZ
+  select ALL
+  select trigE == 1 || trigM == 1 # single-electron or single-muon trigger satisfied
+  select Size(goodLepts) == 4      # Exactly four leptons
+  select Pt(goodLepts[0]) > 25.0   # Leading lepton: Pt > 25 GeV 
+  select Pt(goodLepts[1]) > 15.0   # Second lepton: Pt > 15 GeV
+  select Pt(goodLepts[2]) > 10.0   # Third lepton: Pt > 10 GeV
+  select Pt(goodLepts[3]) > 7.0    # Fourth lepton: Pt > 7 GeV, respectively
+  select isSFOSall == 1
+
+  select chi2Z1 ~= 0
+  select chi2Z2 ~= 0
+
+  select isSFOS12 == 1
+  select isSFOS34 == 1   
+
+  
+  histo hist_mLL1, "Mass of Dilepton System; m_{ll,1} [GeV];Events / bin", 30, 50, 106, m(Lepton12)
+  histo hist_mLL2, "Mass of Dilepton System; m_{ll,2} [GeV];Events / bin", 30, 12, 140, m(Lepton34)
+#
+#  histo mass_ext_four_lep , "mass_ext_four_lep", "Mass of four-lepton system; m_{4l} [GeV];Events / bin", 30, 80, 250, m(Lepton1234)
+#  histo mass_four_lep     , "mass_four_lep"    , "Mass of four-lepton system; m_{4l} [GeV];Events / bin", 24, 80, 170, m(Lepton1234)
+#
+#  histo hist_n_jets  ," Number of Jets;N_{jets};Events", 4, -0.5, 3.5, Size(JET)
+#  histo hist_leptpt  ," Leptons Transverse Momentum;p_{T}^{all lep} [GeV];Leptons / bin", 5 ,  0.0 , 200, Pt(goodLepts)
+#  histo hist_lepteta ," Leptons Pseudorapidity; #eta^{all lep}; Leptons / bin"          , 10, -3.0 , 3  , Eta(goodLepts)
+#  histo hist_leptE   ," Leptons Energy; E^{all lep} [GeV]; Leptons / bin"               , 10, 0    , 300, E(goodLepts)
+#  histo hist_leptphi ," Leptons Azimuthal Angle ; #phi^{all lep}; Leptons / bin"        , 8 , -3.2 , 3.2, Phi(goodLepts)
+#  histo hist_leptch  ," Leptons Charge; Q^{all lep}; Leptons / bin"                     , 7 , -1.75,1.75, q(goodLepts)
+#  histo hist_leptID  ," Leptons Absolute PDG ID; |PDG ID|^{all lep}; Leptons / bin"     , 15,  5.5 ,20.5, pdgID(goodLepts)

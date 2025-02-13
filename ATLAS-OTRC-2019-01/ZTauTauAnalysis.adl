@@ -1,0 +1,130 @@
+info analysis
+  title "Review of the 13 TeV ATLAS Open Data release"
+  experiment ATLAS
+  id "ATLOREACH-PUB-2020-001"
+  publication " EPJ Web Conf., 245 (2020) 08026"
+  sqrtS 13.0
+  lumi 10000
+  doi "10.1051/epjconf/202024508026"
+
+SkipHistos = 1 
+
+### OBJECT DEFINITIONS
+
+object goodEles
+  take ELE
+  select lep_isTight(ELE) == 1
+  select Pt(ELE) > 30.0
+  select AbsEta(ELE) <   2.47
+  select AbsEta(ELE) ][ 1.37 1.52
+  select lep_ptcone30(ELE)/lep_pt(ELE) <   0.1
+  select lep_etcone20(ELE)/lep_pt(ELE) <   0.1     
+  select Abs(lep_trackd0pvunbiased(ELE))/lep_tracksigd0pvunbiased(ELE) < 5.0
+  select Abs(lep_z0(ELE))*sin(Theta(ELE))< 0.5
+
+object goodMuos
+  take MUO
+  select lep_isTight(MUO) == 1
+  select Pt(MUO) > 30.0
+  select AbsEta(MUO) < 2.5 
+  select lep_ptcone30(MUO)/lep_pt(MUO) <   0.1
+  select lep_etcone20(MUO)/lep_pt(MUO) <   0.1      
+  select Abs(lep_trackd0pvunbiased(MUO))/lep_tracksigd0pvunbiased(MUO) < 3.0
+  select Abs(lep_z0(MUO)*sin(Theta(MUO))) < 0.5
+
+object goodLepts : Union(goodEles, goodMuos)
+
+object goodTaus
+  take TAU
+  select tau_isTight(TAU) == 1
+  select Pt(TAU) > 25.0
+  select AbsEta(TAU) < 2.5
+
+object goodJets
+  take JET
+  select Pt(JET) > 25.0
+  select AbsEta(JET) < 2.5
+  # JVT cleaning
+  reject Pt(JET) < 60.0 && ( AbsEta(JET) < 2.4 && jet_jvt(JET) < 0.59 )
+
+# WEIGHTING
+define SF = scaleFactor_ELE*scaleFactor_MUON*scaleFactor_LepTRIGGER*scaleFactor_PILEUP*scaleFactor_TAU
+define Lumi = 10064.0
+define mcMcWeight = HSTEP(channelNumber > 310000) * mcWeight*Lumi*XSection*SF/SumWeights 
+define dataWeight = HSTEP(channelNumber < 310000) * 1.0
+define totalWeight = dataWeight + mcMcWeight
+
+## EVENT VARIABLES
+
+define goodleptn = Size(goodLepts)  # number of leptons
+define goodtaun = Size(goodTaus)    # number of hadronic taus
+define goodjetn = Size(goodJets)    # number of jets
+
+define leadJet = goodJets[0]
+define leadLept = goodLepts[0]
+define leadTau = goodTaus[0]
+define LeptTau = leadLept + leadTau
+
+define visMassLepTau = m(LeptTau)
+
+define dPhiLeptmet = dPhi(leadLept, METLV[0])
+define dPhiTaumet = dPhi(leadTau,METLV[0])
+define sumdPhi = dPhiTaumet + dPhiLeptmet
+define mt = sqrt(2*Pt(leadLept)*MET*(1 - cos(dPhi(leadLept, METLV[0]))))
+
+region init
+  select ALL
+  select Size(goodEles) >= 0
+  select Size(goodMuos) >= 0
+  select Size(goodLepts) >= 0
+  sort Pt(goodLepts) descend
+  select Size(goodTaus) >= 0
+  select Size(goodJets) >= 0
+
+region tautau
+  init
+  weight evtweigth totalWeight
+  select trigE == 1 || trigM == 1
+  select goodleptn == 1
+  select goodtaun == 1
+  select q(leadLept)*q(leadTau) < 0 
+  select visMassLepTau [] 35 75
+  select mt < 30.0
+  select sumdPhi < 3.5
+
+  ## Global variables histograms
+  histo hist_mLL          ,"Visible mass; m_{vis} [GeV];Events / bin", 30, 20, 100, visMassLepTau
+  histo hist_sum_dPhi     ,"sum dPhi; #Sigma#Delta#phi;Events / bin", 30, 0, 6.3,sumdPhi
+  histo hist_etmiss       ,"Missing Transverse Momentum;E_{T}^{miss} [GeV];Events / bin", 20, 0, 150, MET
+  histo hist_mt, "Transverse Mass; m_{T}(#mu,E_{T}^{miss}) [GeV];Events / bin", 30, 1, 150, mt
+
+  ## Jet variables histograms
+  histo hist_n_jets       ,"Number of Jets;N_{jets};Events", 6, -0.5, 5.5, goodjetn
+  histo hist_leadjet_pt   ,"Leading Jet Transverse Momentum;p_{T}^{leadjet} [GeV];Jets", 15, 0, 150, Pt(goodJets)
+  histo hist_leadjet_eta  ,"Leading Jet Pseudorapidity; #eta^{leadjet}; Jets", 15, -3, 3, Eta(goodJets)
+
+  ## Leading Lepton histograms
+  histo hist_leadleptpt   ,"Leading Lepton Transverse Momentum;p_{T}^{leadlep} [GeV];Events / bin", 20, 0, 200,Pt(leadLept)
+  histo hist_leadlepteta  ,"Leading Lepton Pseudorapidity; #eta^{leadlep}; Events / bin", 20, -3, 3, Eta(leadLept)
+  histo hist_leadleptE    ,"Leading Lepton Energy; E^{leadlep} [GeV]; Events / bin", 20, 0, 300, E(leadLept)
+  histo hist_leadleptphi  ,"Leading Lepton Azimuthal Angle ; #phi^{leadlep}; Events / bin", 20, -3.2, 3.2, Phi(leadLept)
+  histo hist_leadleptch   ,"Leading Lepton Charge; Q^{leadlep}; Events / bin", 7, -1.75, 1.75, q(leadLept)
+  histo hist_leadleptID   ,"Leading Lepton Absolute PDG ID; |PDG ID|^{leadlep}; Events / bin",  15, 5.5, 20.5, Abs(pdgID(leadLept))
+
+  ## leading tau histograms
+  histo hist_taupt       ,"Hadronic tau Transverse Momentum;p_{T}^{#tau_{h}} [GeV];Events / bin", 20, 25, 75, Pt(leadTau)
+  histo hist_taueta      ,"Hadronic tau Pseudorapidity; #eta^{#tau_{h}}; Events / bin", 20, -3, 3, Eta(leadTau)
+  histo hist_tauE        ,"Hadronic tau Energy; E^{#tau_{h}} [GeV]; Events / bin", 20, 0, 200, E(leadTau)
+  histo hist_tauphi      ,"Hadronic tau Azimuthal Angle ; #phi^{#tau_{h}}; Events / bin", 20, -3.2, 3.2, Phi(leadTau)
+
+region etau
+  tautau
+  select Abs(pdgID(leadLept)) == 11
+  histo hist_mt_etau, "Transverse Mass; m_{T}(e,E_{T}^{miss}) [GeV];Events / bin"  , 30, 1, 150, mt
+
+region mutau
+  tautau
+  select Abs(pdgID(leadLept)) == 13
+  histo hist_mt_mutau, "Transverse Mass; m_{T}(#mu,E_{T}^{miss}) [GeV];Events / bin", 30, 1, 150, mt
+
+
