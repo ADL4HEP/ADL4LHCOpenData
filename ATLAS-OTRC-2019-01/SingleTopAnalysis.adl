@@ -16,12 +16,7 @@ object goodEles
   select lep_isTightID(ELE) == 1 
   select Pt(ELE) > 35.0
   select lep_ptcone30(ELE)/lep_pt(ELE) <   0.1   
-  select lep_etcone20(ELE)/lep_pt(ELE) <   0.1      
-#  select abs(lep_eta(ELE)) <   2.47        
-#  select abs(lep_eta(ELE)) ][ 1.37 1.52   
-#  select Abs(lep_trackd0pvunbiased(ELE))/lep_tracksigd0pvunbiased(ELE) < 5.0
-#  select Abs(lep_z0(ELE))*sin(Theta(ELE))< 0.5
-
+  select lep_etcone20(ELE)/lep_pt(ELE) <   0.1
 
 object goodMuos
   take MUO
