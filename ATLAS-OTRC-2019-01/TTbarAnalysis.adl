@@ -1,0 +1,132 @@
+info analysis
+  title "Review of the 13 TeV ATLAS Open Data release"
+  experiment ATLAS
+  id "ATLOREACH-PUB-2020-001"
+  publication " EPJ Web Conf., 245 (2020) 08026"
+  sqrtS 13.0
+  lumi 10000
+  doi "10.1051/epjconf/202024508026"
+
+SkipHistos = 1 
+
+## Energy unit in GeV
+## Datatier : ATLAS OpenData Run 2
+
+### OBJECT DEFINITIONS
+object goodEles
+  take ELE
+  select lep_isTight(ELE) == 1
+  select Pt(ELE) > 30.0 # GeV
+  select AbsEta(ELE) <   2.47
+  select AbsEta(ELE) ][ 1.37 1.52
+  select lep_ptcone30(ELE)/lep_pt(ELE) <   0.15
+  select lep_etcone20(ELE)/lep_pt(ELE) <   0.15     
+  select Abs(lep_trackd0pvunbiased(ELE))/lep_tracksigd0pvunbiased(ELE) < 5.0
+  select Abs(lep_z0(ELE))*sin(Theta(ELE))< 0.5
+
+object goodMuos
+  take MUO
+  select lep_isTight(MUO) == 1
+  select Pt(MUO) > 30.0                 
+  select AbsEta(MUO) < 2.5
+  select lep_ptcone30(MUO)/lep_pt(MUO) <   0.15
+  select lep_etcone20(MUO)/lep_pt(MUO) <   0.15       
+  select Abs(lep_trackd0pvunbiased(MUO))/lep_tracksigd0pvunbiased(MUO) < 3.0
+  select Abs(lep_z0(MUO)*sin(Theta(MUO))) < 0.5
+
+object goodJets
+  take JET
+  select Pt(JET) > 30.0
+  select AbsEta(JET) < 2.5 
+  ## JVT Cleaning
+  reject Pt(JET) < 60.0 && (AbsEta(JET) < 2.4 && jet_jvt(JET) < 0.59)
+
+object goodBTaggedJets
+  take goodJets
+  select jet_MV2c10(goodJets) > 0.8244273
+
+object goodLepts : Union(goodEles, goodMuos)
+
+# WEIGHTING
+define SF = scaleFactor_ELE*scaleFactor_MUON*scaleFactor_LepTRIGGER*scaleFactor_PILEUP*scaleFactor_BTAG
+define Lumi = 10064.0
+define mcMcWeight = HSTEP(channelNumber > 310000) * mcWeight*Lumi*XSection*SF/SumWeights 
+define dataWeight = HSTEP(channelNumber < 310000) * 1.0
+define totalWeight = dataWeight + mcMcWeight
+
+define leadLept = goodLepts[0]  # Leading lepton
+define leadJet = goodJets[0]    # Leading jet
+define leadBJet = goodBTaggedJets[0]  # Leading b-tagged jet
+
+
+define mtw = sqrt(2*Pt(leadLept)*MET*(1 - cos(dPhi(leadLept, METLV[0]))))
+
+define goodJetA = goodJets[-1]
+define goodJetB = goodJets[-2]
+define goodJetC = goodJets[-3]
+
+define Ptjjj = Pt(goodJetA + goodJetB + goodJetC)
+define mTopjjj = m(goodJetA + goodJetB + goodJetC)
+
+define Ptjj1 = Pt(goodJetA + goodJetB)
+define Ptjj2 = Pt(goodJetB + goodJetC)
+define Ptjj3 = Pt(goodJetA + goodJetC)
+
+define PtjjMax = max(Ptjj1,Ptjj2,Ptjj3)
+define Mjj1 = m(goodJetA + goodJetB)*HSTEP(Ptjj1 == PtjjMax)
+define Mjj2 = m(goodJetB + goodJetC)*HSTEP(Ptjj2 == PtjjMax)
+define Mjj3 = m(goodJetA + goodJetC)*HSTEP(Ptjj3 == PtjjMax)
+define mWjj = Mjj1 + Mjj2 + Mjj3
+
+region init
+  select Size(goodEles) >= 0
+  select Size(goodMuos) >= 0
+  select Size(goodLepts) >= 0
+  sort Pt(goodLepts) descend
+  select Size(goodJets) >= 0
+  select Size(goodBTaggedJets) >= 0 
+
+  weight evtWeight totalWeight
+
+region TTbar
+  init
+  select trigE == 1 || trigM == 1
+  
+  select Size(JET) > 3
+  select Size(goodLepts) == 1
+  select Size(goodJets) >= 4
+  select Size(goodBTaggedJets) >= 2
+
+  select mtw > 30.0   # GeV
+  select MET > 30.0   # GeV 
+
+  histo hist_etmiss, "Missing Transverse Momentum;E_{T}^{miss} [GeV];Events / bin", 20, 0, 300, MET
+  histo hist_mtw, "Transverse Mass; M^{W}_{T} [GeV];Events / bin", 20, 0, 300, mtw
+
+  histo hist_n_jets,         "Number of Jets;N_{jets};Events", 5, 3.5, 8.5, Size(goodJets)
+  histo hist_leadjet_pt,     "Leading Jet Transverse Momentum;p_{T}^{jet} [GeV];Events / bin", 20, 0, 450, Pt(goodJets)
+  histo hist_leadjet_eta,    "Leading Jet Pseudorapidity; #eta^{jet}; Events / bin", 30, -3, 3, Eta(goodJets)
+  histo hist_n_bjets,        "Number of b-jets;N_{b-jets};Events", 3, 1.5, 4.5, Size(goodBTaggedJets)
+  histo hist_leadbjet_pt,    "Leading b-jet Transverse Momentum;p_{T}^{b-jet} [GeV];Events / bin", 20, 0, 350, Pt(goodBTaggedJets)
+  histo hist_leadbjet_eta,   "Leading b-jet Pseudorapidity; #eta^{b-jet}; Events / bin", 30, -3, 3, Eta(goodBTaggedJets)
+
+  histo hist_leadleptpt  , "Leading Lepton Transverse Momentum;p_{T}^{leadlep} [GeV];Events / bin", 20, 0, 200, Pt(leadLept)
+  histo hist_leadlepteta , "Leading Lepton Pseudorapidity; #eta^{leadlep}; Events / bin", 30, -3, 3, Eta(leadLept)
+  histo hist_leadleptE   , "Leading Lepton Energy; E^{leadlep} [GeV]; Events / bin", 30, 0, 300, E(leadLept)
+  histo hist_leadleptphi , "Leading Lepton Azimuthal Angle ; #phi^{leadlep}; Events / bin", 32, -3.2, 3.2, Phi(leadLept)
+  histo hist_leadleptch  , "Leading Lepton Charge; Q^{leadlep}; Events / bin", 7, -1.75, 1.75, q(leadLept)
+  histo hist_leadleptID  , "Leading Lepton Absolute PDG ID; |PDG ID|^{leadlep}; Events / bin",  15, 5.5, 20.5, PDGID(leadLept)
+
+  histo hist_n_jets,         "Number of Jets;N_{jets};Events", 5, 3.5, 8.5, Size(goodJets)
+  histo hist_leadjet_pt,     "Leading Jet Transverse Momentum;p_{T}^{jet} [GeV];Events / bin", 20, 0, 450, Pt(goodJets)
+  histo hist_leadjet_eta,    "Leading Jet Pseudorapidity; #eta^{jet}; Events / bin", 30, -3, 3, Eta(goodJets)
+  histo hist_n_bjets,        "Number of b-jets;N_{b-jets};Events", 3, 1.5, 4.5, Size(goodBTaggedJets)
+  histo hist_leadbjet_pt,    "Leading b-jet Transverse Momentum;p_{T}^{b-jet} [GeV];Events / bin", 20, 0, 350, Pt(goodBTaggedJets)
+  histo hist_leadbjet_eta,   "Leading b-jet Pseudorapidity; #eta^{b-jet}; Events / bin", 30, -3, 3, Eta(goodBTaggedJets)
+
+  select Ptjjj ~= 99999
+
+  histo hist_Wmass, "Mass of two jets;m_{jj}^{max p_{T}} [GeV];Events / bin", 40, 50, 120, mWjj
+  histo hist_Topmass, "Mass of three jets;m_{jjj}^{max p_{T}} [GeV];Events / bin", 40, 100, 250, mTopjjj
+
+
