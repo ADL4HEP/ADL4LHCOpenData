@@ -1,0 +1,94 @@
+info analysis
+  title "Review of the 13 TeV ATLAS Open Data release"
+  experiment ATLAS
+  id "ATLOREACH-PUB-2020-001"
+  publication " EPJ Web Conf., 245 (2020) 08026"
+  sqrtS 13.0
+  lumi 10000
+  doi "10.1051/epjconf/202024508026"
+
+SkipHistos = 1 
+
+define pi = 3.14159265359
+
+### OBJECT DEFINITIONS
+
+object goodEles
+  take ELE
+  select lep_isTight(ELE) == 1
+  select Pt(ELE) > 20.0
+  select AbsEta(ELE) <   2.47
+  select AbsEta(ELE) ][ 1.37 1.52
+  select lep_ptcone30(ELE)/lep_pt(ELE) <   0.15
+  select lep_etcone20(ELE)/lep_pt(ELE) <   0.15     
+  select Abs(lep_trackd0pvunbiased(ELE))/lep_tracksigd0pvunbiased(ELE) < 5.0
+  select Abs(lep_z0(ELE))*sin(Theta(ELE))< 0.5
+
+object goodMuos
+  take MUO
+  select lep_isTight(MUO) == 1
+  select Pt(MUO) > 20.0
+  select AbsEta(MUO) < 2.5 
+  select lep_ptcone30(MUO)/lep_pt(MUO) <   0.15
+  select lep_etcone20(MUO)/lep_pt(MUO) <   0.15     
+  select Abs(lep_trackd0pvunbiased(MUO))/lep_tracksigd0pvunbiased(MUO) < 3.0
+  select Abs(lep_z0(MUO)*sin(Theta(MUO))) < 0.5
+
+object goodLepts : Union(goodEles, goodMuos)
+
+# WEIGHTING
+define sfc = scaleFactor_ELE*scaleFactor_MUON*scaleFactor_LepTRIGGER*scaleFactor_PILEUP
+define Lumi = 10064.0
+define mcMcWeight = HSTEP(channelNumber > 310000) * mcWeight*Lumi*XSection*sfc/SumWeights 
+define dataWeight = HSTEP(channelNumber < 310000) * 1.0
+define totalWeight = dataWeight + mcMcWeight
+
+
+## EVENT VARIABLE DEFINITONS 
+
+define Lepton1 = goodLepts[-1]
+define Lepton2 = goodLepts[-2]
+define Lepton3 = goodLepts[-3]
+
+define Lepton12 = Lepton1 Lepton2
+
+define mtw = sqrt(2*Pt(Lepton3)*MET*(1 - cos(dPhi(Lepton3, METLV[0]))))
+
+define 3Lepton = Lepton1 Lepton2 Lepton3
+define mtwz = sqrt(2*Pt(3Lepton)*MET*(1 - cos(dPhi(3Lepton, METLV[0]))))
+
+define Chi2WZ  = ( m(Lepton12) - 91.18 )^2 + (9999*pdgID(Lepton12))^2 + 0*mtw
+
+region init
+  select ALL
+  select Size(goodEles) >= 0
+  select Size(goodMuos) >= 0
+  select Size(goodLepts) >= 0
+  sort Pt(goodLepts) descend
+  weight evtweigt totalWeight
+
+region WZDiBoson
+  init
+  select trigE == 1 || trigM == 1
+  select MET > 30.0
+  select Size(goodLepts) == 3
+  select Chi2WZ ~= 0
+  select pdgID(Lepton12) == 0
+  select Pt(goodLepts) > 25.0
+  select Abs(m(Lepton12) - 91.18) < 10.0
+  select mtw  > 30.0
+
+  ## Global histograms variables
+  histo hist_mLL           ,"Mass of Dilepton System; m_{ll} [GeV];Events / bin", 20, 76, 106, m(Lepton12)
+  histo hist_etmiss        ,"Missing Transverse Momentum;E_{T}^{miss} [GeV];Events / bin", 20, 0, 160, MET
+  histo hist_mtw           ,"Transverse Mass; M^{W}_{T} [GeV];Events / bin", 20, 0, 200, mtw
+  histo hist_mtwz          ,"Transverse Mass; M^{WZ}_{T} [GeV];Events / bin", 500, 0, 500, mtwz
+  histo hist_ptLL          ,"Transverse momentum of Dilepton System; p^{ll}_{T} [GeV];Events / bin", 20, 0, 400, Pt(Lepton12)
+
+  ## Lepton histograms
+  histo hist_threeleptpt   ," Lepton Transverse Momentum;p_{T}^{all lep} [GeV]; Leptons / bin", 10, 25, 200, Pt(goodLepts)
+  histo hist_threelepteta  ," Lepton Pseudorapidity; #eta^{all lep}; Leptons / bin", 15, -3, 3, Eta(goodLepts)
+  histo hist_threeleptE    ," Lepton Energy; E^{all lep} [GeV]; Leptons / bin", 15, 0, 300, E(goodLepts)
+  histo hist_threeleptphi  ," Lepton Azimuthal Angle ; #phi^{all lep}; Leptons / bin", 16, -3.2, 3.2, Phi(goodLepts)
+  histo hist_threeleptch   ," Lepton Charge; Q^{all lep}; Leptons / bin", 7, -1.75, 1.75, q(goodLepts)
+  histo hist_threeleptID   ," Lepton Absolute PDG ID; |PDG ID|^{all lep}; Leptons / bin",  15, 5.5, 20.5, Abs(pdgID(goodLepts))
