@@ -1,0 +1,99 @@
+### BSM Z' Analysis ###
+object goodEle : ELE
+  select Pt(ELE) > 30
+  select absEta(ELE) < 2.47
+  reject absEta(ELE) [] 1.37 1.52 
+  select lep_ptcone30(ELE)/lep_pt(ELE) < 0.15
+  select lep_etcone20(ELE)/lep_pt(ELE) < 0.15
+  select abs(lep_z0(ELE)*sin(theta(ELE))) < 0.5
+  select abs(lep_trackd0pvunbiased(ELE))/lep_tracksigd0pvunbiased(ELE) < 5
+  select lep_isTightID(ELE) == 1
+
+object goodMuo : MUO
+  select Pt(MUO) > 30
+  select absEta(MUO) < 2.5
+  select lep_ptcone30(MUO)/lep_pt(MUO) < 0.15
+  select lep_etcone20(MUO)/lep_pt(MUO) < 0.15
+  select abs(lep_z0(MUO)*sin(theta(MUO))) < 0.5
+  select abs(lep_trackd0pvunbiased(MUO))/lep_tracksigd0pvunbiased(MUO) < 3
+  select lep_isTightID(MUO) == 1
+
+object goodLep : Union(goodEle,goodMuo)
+
+object goodJet : JET
+  select Pt(JET) > 30
+  select absEta(JET) < 2.5
+  reject Pt(JET) < 60 && absEta(JET) < 2.4 && jet_jvt(JET) < 0.59
+
+object goodDRJet : goodJet
+  select ALL
+  select dR(goodJet,goodLep) < 2.0
+
+object goodBJet : goodJet
+  select jet_MV2c10(goodJet) > 0.8244273 
+
+object goodFJet : FJET
+  select absEta(FJET) < 2.0
+  select m(FJET) > 50
+  select Pt(FJET) > 250
+
+object topLRJet : FJET
+  select m(FJET) > 100
+  select Pt(FJET) > 300 && PT(FJET) < 1500
+  select absEta(FJET) < 2.0
+  select Flavor(FJET) < 0.75
+  select dR(FJET,goodDRJet) > 1.5
+  select dPhi(FJET,goodLep) > 1.0
+
+define MTW : sqrt(2*Pt(goodLep[0])*MET*(1 - cos(dPhi(goodLep[0],METLV[0]))))
+
+
+define toplep : goodDRJet[0] goodLep[0]
+define tophad : topLRJet[0]
+define ttbar : toplep tophad
+
+##### weights #####
+define Sfactor : scaleFactor_ELE*scaleFactor_MUON*scaleFactor_LepTRIGGER*scaleFactor_PILEUP*scaleFactor_BTAG
+define Lumi : 10064 # 10 fb-1
+
+define totweight : XSection*mcWeight*Sfactor*Lumi/SumWeights
+
+define totweightAuto : HSTEP(channelNumber < 310000) * 1 + HSTEP(channelNumber > 310000) * totweight
+# For data, total weight = 1
+#
+define dPhitopLR : dPhi(goodLep[0],topLRJet[0])
+define dRgoodT : dR(topLRJet[0],goodDRJet[0])
+define dR_bjet_TopLR : dR(goodBJet[0],topLRJet)
+define dR_bjet_smallRjet : dR(goodBJet[0],goodDRJet)
+
+define btag_is_within_TopLR : HSTEP(dR_bjet_TopLR < 1.0)
+define btag_is_smallRjet : HSTEP(dR_bjet_smallRjet < 0.01)
+
+region Zprime
+  select ALL
+  weight eventweight totweightAuto
+  select Size(FJET) >= 1
+  select met_et > 20000.0
+  select trigE == 1 || trigM == 1
+  select Size(goodEle) >= 0
+  select Size(goodMuo) >= 0
+  select Size(goodLep) == 1
+  Sort Pt(goodLep) descend
+  select (MET + MTW) > 60 
+  select Size(goodBJet) >= 1
+  select Size(goodDRJet) >= 1
+  histo hNlargeRjet, "Number of top-tagged Large-R Jets;N^{Large-R jets};Events", 4, -0.5, 3.5,Size(goodFJet)
+  histo hleadLRpt, "Large-R Jet Transverse Momentum;p_{T}^{Large-R jet} [GeV];Events / bin", 30, 250, 700,Pt(goodFJet) 
+  histo hleadLReta, "Large-R Jet Pseudorapidity; #eta^{Large-R jet}; Events / bin", 20, -3, 3,Eta(goodFJet)
+  histo hleadLRphi, "Large-R Jet phi; #phi^{Large-R jet}; Events / bin", 12, -3.2, 3.2,Phi(goodFJet)
+  histo hleadLRm,   "Large-R Jet mass; m^{Large-R jet} [GeV]; Events / bin", 30, 50, 250,m(goodFJet)
+  select Size(topLRJet) >= 0
+  select Size(topLRJet) == 1
+  histo hPttopLRjet, "Top-tagged Large-R Jet Transverse Momentum;p_{T}^{Top-tagged Large-R jet} [GeV];Events / bin", 30, 250, 700,Pt(topLRJet[0])
+  histo hEtatopLRjet, "Top-tagged Large-R Jet Pseudorapidity; #eta^{Top-tagged Large-R jet}; Events / bin", 20, -3, 3,Eta(topLRJet[0])
+  histo hPhitopLRjet, "Top-tagged Large-R Jet phi; #phi^{Top-tagged Large-R jet}; Events / bin", 12, -3.2, 3.2,Phi(topLRJet[0])
+  histo hMasstopLRjet, "Top-tagged Large-R Jet mass; m^{Top-tagged Large-R jet} [GeV]; Events / bin", 25, 100, 250,m(topLRJet[0])
+  select jet_MV2c10(goodDRJet[0]) > 0.8244273
+  histo httbarm, " (Almost) ttbar mass (no neutrino); m^{Top-tagged Large-R jet, Small-R jet, Lepton} [GeV]; Events / bin", 20, 400, 1600, m(ttbar)
+  
+  

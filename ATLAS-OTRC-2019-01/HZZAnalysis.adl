@@ -1,0 +1,82 @@
+#info analysis
+#  title Review of the 13 TeV ATLAS Open Data Release
+#  experiment ATLAS
+#  id PUB-OTRC-2020-01
+#  lumi 10 fb-1
+#  sqrts 13
+#  publication https://cds.cern.ch/record/2707171
+
+object goodEle : ELE
+  select Pt(ELE) > 7
+  select absEta(ELE) < 2.47
+  select lep_ptcone30(ELE)/lep_pt(ELE) < 0.3
+  select lep_etcone20(ELE)/lep_pt(ELE) < 0.3
+  select abs(lep_z0(ELE)*sin(theta(ELE))) < 0.5
+  select abs(lep_trackd0pvunbiased(ELE))/lep_tracksigd0pvunbiased(ELE) < 5
+
+object goodMuo : MUO
+  select Pt(MUO) > 7
+  select absEta(MUO) < 2.5
+  select lep_ptcone30(MUO)/lep_pt(MUO) < 0.3
+  select lep_etcone20(MUO)/lep_pt(MUO) < 0.3
+  select abs(lep_z0(MUO)*sin(theta(MUO))) < 0.5
+  select abs(lep_trackd0pvunbiased(MUO))/lep_tracksigd0pvunbiased(MUO) < 3
+
+object goodLep : Union(goodEle,goodMuo)
+
+define lepA : goodLep[-1]
+define lepB : goodLep[-2]
+define lepC : goodLep[-3]
+define lepD : goodLep[-4]
+
+define sumcharges : q(goodLep[0]) + q(goodLep[1]) + q(goodLep[2]) + q(goodLep[3])
+
+define Z1 : lepA lepB
+define Z2 : lepC lepD
+
+define Fourlep : lepA lepB lepC lepD
+
+define chiZ1 : abs(m(Z1) - 91.18) + 99999*q(Z1) + 99999*HSTEP( PDGID(lepA) / PDGID(lepB) != -1)
+define chiZ2 : abs(m(Z2) - 91.18) + 99999*q(Z2) + 99999*HSTEP( PDGID(lepC) / PDGID(lepD) != -1) 
+
+define sumtypes : abs(PDGID(goodLep[0])) + abs(PDGID(goodLep[1])) + abs(PDGID(goodLep[2])) + abs(PDGID(goodLep[3]))
+#### weights ####
+define Sfactor : scaleFactor_ELE*scaleFactor_MUON*scaleFactor_LepTRIGGER*scaleFactor_PILEUP
+define Lumi : 10064 # 10 fb-1
+
+define totweight : XSection*mcWeight*Sfactor*Lumi/SumWeights
+
+define totweightAuto : HSTEP(channelNumber < 310000) * 1 + HSTEP(channelNumber > 310000) * totweight
+# For data, total weight = 1 
+
+region HZZ
+  select ALL
+  weight eventweight totweightAuto
+  select trigE == 1 || trigM == 1
+  select Size(goodEle) >= 0
+  select Size(goodMuo) >= 0
+  select Size(goodLep) == 4
+  Sort Pt(goodLep) descend
+  select Pt(goodLep[0]) > 25
+  select Pt(goodLep[1]) > 15
+  select Pt(goodLep[2]) > 10
+  select sumcharges == 0
+  select (sumtypes == 44 || sumtypes == 52) || sumtypes == 48
+  select chiZ1 ~= 0
+  select chiZ2 ~= 0
+  histo hPtlep, "Pt leps; pt_{4l} [GeV];Events / bin", 5, 0, 200, Pt(goodLep) 
+  histo hEtalep, "Leptons Pseudorapidity; #eta^{all lep}; Leptons / bin", 10, -3, 3, Eta(goodLep)
+  histo hPhilep,   " Leptons Azimuthal Angle ; #phi^{all lep}; Leptons / bin", 8, -3.2, 3.2,Phi(goodLep)
+  histo hElep, " Leptons Energy; E^{all lep} [GeV]; Leptons / bin", 10, 0, 300,E(goodLep)
+  histo hIDlep, " Leptons Absolute PDG ID; |PDG ID|^{all lep}; Leptons / bin",  15, 5.5, 20.5, abs(PDGID(goodLep))
+  histo hQlep, " Leptons Charge; Q^{all lep}; Leptons / bin", 7, -1.75, 1.75, q(goodLep)
+  histo hNjet, "Number of Jets;N_{jets};Events", 4, -0.5, 3.5, Size(JET)
+  histo hZ1mass, "Mass of Dilepton System; m_{ll,1} [GeV];Events / bin", 30, 50, 106, m(Z1)
+  histo hZ2mass, "Mass of Dilepton System; m_{ll,2} [GeV];Events / bin", 30, 12, 140, m(Z2)
+  histo h4lmass, "Mass of four-lepton system; m_{4l} [GeV];Events / bin", 24, 80, 170,m(Fourlep)
+  histo h4lpt, "Transverse Momentum of four-lepton system; p_{T,4l} [GeV];Events / bin", 20, 0, 200,Pt(Fourlep)
+  
+  
+
+
+
