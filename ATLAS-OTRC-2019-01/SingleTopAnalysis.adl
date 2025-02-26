@@ -1,0 +1,110 @@
+info analysis
+  title "Review of the 13 TeV ATLAS Open Data release"
+  experiment ATLAS
+  id "ATLOREACH-PUB-2020-001"
+  publication " EPJ Web Conf., 245 (2020) 08026"
+  sqrtS 13.0
+  lumi 10000
+  doi "10.1051/epjconf/202024508026"
+
+SkipHistos = 1
+
+# OBJECT SELECTION
+
+object goodEles
+  take ELE
+  select lep_isTightID(ELE) == 1 
+  select Pt(ELE) > 35.0
+  select lep_ptcone30(ELE)/lep_pt(ELE) <   0.1   
+  select lep_etcone20(ELE)/lep_pt(ELE) <   0.1      
+#  select abs(lep_eta(ELE)) <   2.47        
+#  select abs(lep_eta(ELE)) ][ 1.37 1.52   
+#  select Abs(lep_trackd0pvunbiased(ELE))/lep_tracksigd0pvunbiased(ELE) < 5.0
+#  select Abs(lep_z0(ELE))*sin(Theta(ELE))< 0.5
+
+
+object goodMuos
+  take MUO
+  select lep_isTightID(MUO) == 1 
+  select Pt(MUO) > 35.0
+  select lep_ptcone30(MUO)/lep_pt(MUO) <   0.1       
+  select lep_etcone20(MUO)/lep_pt(MUO) <   0.1      
+
+object goodLepts : Union(goodEles, goodMuos)
+
+object goodJets
+  take JET
+  select Pt(JET) > 30.0
+  select AbsEta(JET) < 2.5
+  # JVT cleaning
+  reject Pt(JET) < 60.0 && ( AbsEta(JET) < 2.4 && jet_jvt(JET) < 0.59 )
+
+object bJets
+  take goodJets
+  select jet_MV2c10(goodJets) > 0.8244273
+
+object nonbJets
+  take goodJets
+  select jet_MV2c10(goodJets) < 0.8244273
+
+### EVENT WEIGHTING VARIABLES
+define scaleFactor = scaleFactor_ELE * scaleFactor_MUON * scaleFactor_LepTRIGGER * scaleFactor_BTAG * scaleFactor_PILEUP
+define Lumi = 10064.0
+define totWeight = mcWeight*Lumi*XSection*scaleFactor/SumWeights 
+define totWeightAuto = HSTEP(channelNumber < 310000) * 1 + HSTEP(channelNumber > 310000) * totWeight
+
+## OBJECT ALIASES
+define leadLept  = goodLepts[0]
+define leadbJet = bJets[0]
+define leadnonbJet = nonbJets[0]
+
+define lb = leadbJet leadLept
+define mlb = m(lb)
+
+define mtw = sqrt(2*Pt(leadLept)*MET*(1 - cos(dPhi(leadLept, METLV[0]))))
+define Ht = sum(Pt(goodEles[0:]))+ sum(Pt(goodMuos[0:])) + sum(Pt(goodJets[0:])) + MET 
+
+
+# EVENT SELECTION
+
+# Initialization of physic objects
+region init
+   select Size(goodEles) >= 0
+   select Size(goodMuos) >= 0
+   select Size(goodLepts) >= 0 
+   sort Pt(goodLepts) descend
+   select Size(goodJets) >= 0
+   select Size(bJets) >= 0 
+   select Size(nonbJets) >= 0
+
+   weight evtweight totWeightAuto
+
+region SingleTopAnalysis
+  init
+  select trigE == 1 || trigM == 1
+  select MET > 30.0
+  select Size(goodLepts) == 1
+  select Size(goodJets) == 2
+  select Size(bJets) == 1
+  select mtw > 60.0
+  select mlb < 150.0
+  select Ht  > 195.0
+  select AbsEta(leadnonbJet) > 1.5
+  select Abs( dEta(leadnonbJet, leadbJet) ) > 1.5
+
+  histo hist_etmiss ,"Missing Transverse Momentum;E_{T}^{miss} [GeV];Events / bin", 20, 0, 200, MET
+  histo hist_mtw, "Transverse Mass; M^{W}_{T} [GeV];Events / bin", 30, 0, 200, mtw
+  histo hist_deta, "Delta eta; #Delta#eta(j,b);Events / bin", 20, 0, 5, dEta(leadnonbJet, leadbJet)
+  histo hist_HT, "HT ;H_{T}(lep,jets,E_{T}^{miss}) [GeV];Events / bin", 30, 150, 500, Ht
+  
+  histo hist_leadjetpt, "Untagged Jet Transverse Momentum;p_{T}^{jet} [GeV];Events / bin", 20, 0, 200, Pt(leadnonbJet)
+  histo hist_leadjeteta, "Untagged Jet Pseudorapidity; #eta^{jet}; Events / bin", 20, -3, 3, Eta(leadnonbJet)
+  histo hist_leadbjetpt, "Leading b-jet Transverse Momentum;p_{T}^{b-jet} [GeV];Events / bin", 20, 0, 200, Pt(leadbJet)
+  histo hist_leadbjeteta, "Leading b-jet Pseudorapidity; #eta^{b-jet}; Events / bin", 20, -3, 3, Eta(leadbJet)
+
+  histo hist_leadleptpt , "Leading Lepton Transverse Momentum;p_{T}^{leadlep} [GeV];Events / bin", 20, 0, 200, Pt(leadLept)
+  histo hist_leadlepteta, "Leading Lepton Pseudorapidity; #eta^{leadlep}; Events / bin", 20, -3, 3, Eta(leadLept)
+  histo hist_leadleptE  , "Leading Lepton Energy; E^{leadlep} [GeV]; Events / bin", 15, 0, 300, E(leadLept)
+  histo hist_leadleptphi, "Leading Lepton Azimuthal Angle ; #phi^{leadlep}; Events / bin", 16, -3.2, 3.2, Phi(leadLept)
+  histo hist_leadleptch , "Leading Lepton Charge; Q^{leadlep}; Events / bin", 7, -1.75, 1.75, q(leadLept)
+  histo hist_leadleptID , "Leading Lepton Absolute PDG ID; |PDG ID|^{leadlep}; Events / bin",  15, 5.5, 20.5, Abs(pdgID(leadLept))
