@@ -78,7 +78,7 @@ define Mjj2 = m(goodJetB + goodJetC)*HSTEP(Ptjj2 == PtjjMax)
 define Mjj3 = m(goodJetA + goodJetC)*HSTEP(Ptjj3 == PtjjMax)
 define mWjj = Mjj1 + Mjj2 + Mjj3
 
-region init
+region initialization
   select Size(goodEles) >= 0
   select Size(goodMuos) >= 0
   select Size(goodLepts) >= 0
@@ -89,7 +89,7 @@ region init
   weight evtWeight totalWeight
 
 region TTbar
-  init
+  initialization
   select trigE == 1 || trigM == 1
   
   select Size(JET) > 3
