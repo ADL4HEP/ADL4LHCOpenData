@@ -48,7 +48,7 @@ define Zll = leadLept subleadLept
 define mLL = m(Zll)
 
 ## EVENT SELECTION
-region init
+region initialization
   select ALL
   select Size(goodEles) >= 0
   select Size(goodMuos) >= 0
