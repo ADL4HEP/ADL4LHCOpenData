@@ -46,7 +46,7 @@ define mtw = sqrt(2*Pt(leadLept)*MET*(1 - cos(dPhi(leadLept, METLV[0]))))
 define ptisovar = lep_ptcone30(leadLept)/lep_pt(leadLept)
 
 ## EVENT SELECTION
-region init
+region initialization
   select ALL
   select Size(goodEles) >= 0
   select Size(goodMuos) >= 0
