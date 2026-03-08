@@ -63,7 +63,7 @@ define Ht = sum(Pt(goodEles[0:]))+ sum(Pt(goodMuos[0:])) + sum(Pt(goodJets[0:]))
 # EVENT SELECTION
 
 # Initialization of physic objects
-region init
+region initialization
    select Size(goodEles) >= 0
    select Size(goodMuos) >= 0
    select Size(goodLepts) >= 0 
@@ -75,7 +75,7 @@ region init
    weight evtweight totWeightAuto
 
 region SingleTopAnalysis
-  init
+  initialization
   select trigE == 1 || trigM == 1
   select MET > 30.0
   select Size(goodLepts) == 1
