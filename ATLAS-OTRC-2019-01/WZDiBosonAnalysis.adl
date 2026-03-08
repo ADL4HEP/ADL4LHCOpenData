@@ -59,7 +59,7 @@ define mtwz = sqrt(2*Pt(3Lepton)*MET*(1 - cos(dPhi(3Lepton, METLV[0]))))
 
 define Chi2WZ  = ( m(Lepton12) - 91.18 )^2 + (9999*pdgID(Lepton12))^2 + 0*mtw
 
-region init
+region initialization
   select ALL
   select Size(goodEles) >= 0
   select Size(goodMuos) >= 0
@@ -67,8 +67,8 @@ region init
   sort Pt(goodLepts) descend
   weight evtweigt totalWeight
 
-region WZDiBoson
-  init
+region WZDiBosonAnalysis
+  initialization
   select trigE == 1 || trigM == 1
   select MET > 30.0
   select Size(goodLepts) == 3
