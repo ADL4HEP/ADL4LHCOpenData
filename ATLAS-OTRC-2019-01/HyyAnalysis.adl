@@ -29,9 +29,8 @@ define simWeight =  HSTEP(channelNumber > 310000) * mcWeight*Lumi*XSection*scale
 define dataWeight = HSTEP(channelNumber < 310000) * 1.0
 define autoWeight = dataWeight + simWeight
 
-region init
+region initialization
     select Size(goodPhotons) > 0 
-
     weight myweight autoWeight
 
 region HyyAnalysis
