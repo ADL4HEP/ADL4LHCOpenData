@@ -34,7 +34,7 @@ region initialization
     weight myweight autoWeight
 
 region HyyAnalysis
-    init
+    initialization
     select trigP == 1
     select Size(goodPhotons) == 2
 
