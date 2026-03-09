@@ -78,7 +78,10 @@ define Mjj2 = m(goodJetB + goodJetC)*HSTEP(Ptjj2 == PtjjMax)
 define Mjj3 = m(goodJetA + goodJetC)*HSTEP(Ptjj3 == PtjjMax)
 define mWjj = Mjj1 + Mjj2 + Mjj3
 
-region initialization
+region initializations
+  weight evtWeight totalWeight
+  select MET > 30.0   # GeV 
+  select Size(JET) > 3
   select Size(goodEles) >= 0
   select Size(goodMuos) >= 0
   select Size(goodLepts) >= 0
@@ -86,19 +89,15 @@ region initialization
   select Size(goodJets) >= 0
   select Size(goodBTaggedJets) >= 0 
 
-  weight evtWeight totalWeight
 
-region TTbar
-  initialization
-  select trigE == 1 || trigM == 1
-  
-  select Size(JET) > 3
-  select Size(goodLepts) == 1
-  select Size(goodJets) >= 4
-  select Size(goodBTaggedJets) >= 2
+region TTbarAnalysis
+  initializations
+  select trigE == 1 || trigM == 1  
+  select Size(goodLepts) == 1  # Exactly one good lepton
+  select Size(goodJets) >= 4  # At least four good jets
+  select Size(goodBTaggedJets) >= 2  # At least two b−tagged jets
 
-  select mtw > 30.0   # GeV
-  select MET > 30.0   # GeV 
+  select mtw > 30.0   # MTW > 30 GeV W decaying leptonically
 
   histo hist_etmiss, "Missing Transverse Momentum;E_{T}^{miss} [GeV];Events / bin", 20, 0, 300, MET
   histo hist_mtw, "Transverse Mass; M^{W}_{T} [GeV];Events / bin", 20, 0, 300, mtw
@@ -123,7 +122,7 @@ region TTbar
   histo hist_n_bjets,        "Number of b-jets;N_{b-jets};Events", 3, 1.5, 4.5, Size(goodBTaggedJets)
   histo hist_leadbjet_pt,    "Leading b-jet Transverse Momentum;p_{T}^{b-jet} [GeV];Events / bin", 20, 0, 350, Pt(goodBTaggedJets)
   histo hist_leadbjet_eta,   "Leading b-jet Pseudorapidity; #eta^{b-jet}; Events / bin", 30, -3, 3, Eta(goodBTaggedJets)
-
+  # finding largest pT of 3-jet system
   select Ptjjj ~= 99999
 
   histo hist_Wmass, "Mass of two jets;m_{jj}^{max p_{T}} [GeV];Events / bin", 40, 50, 120, mWjj
