@@ -49,7 +49,7 @@ define mLL = m(Lepton12)
 define zMassWindow = abs(mLL - 91.18)
 
 ## EVENT SELECTION
-region initialization
+region initializations
   select ALL
   select Size(goodEles) >= 0
   select Size(goodMuos) >= 0
@@ -57,7 +57,7 @@ region initialization
   sort Pt(goodLepts) descend
 
 region ZBosonAnalysis_ll
-  initialization
+  initializations
   weight evtWeight totalWeight
   select trigE == 1 || trigM == 1
   select Size(goodLepts) == 2
