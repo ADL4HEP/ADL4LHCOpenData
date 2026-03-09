@@ -46,7 +46,7 @@ define mtw = sqrt(2*Pt(leadLept)*MET*(1 - cos(dPhi(leadLept, METLV[0]))))
 
 
 ## EVENT SELECTION
-region initialization
+region initializations
   select ALL
   select Size(goodEles) >= 0
   select Size(goodMuos) >= 0
@@ -54,7 +54,7 @@ region initialization
   sort Pt(goodLepts) descend
  
 region WBosonAnalysis_lnu
-  initialization
+  initializations
   weight evtWeight totalWeight
   select trigE == 1 || trigM == 1
   select MET > 30.0  
