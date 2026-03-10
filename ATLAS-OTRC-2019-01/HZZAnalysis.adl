@@ -36,8 +36,8 @@ define Z2 : lepC lepD
 
 define Fourlep : lepA lepB lepC lepD
 
-define chiZ1 : abs(m(Z1) - 91.18) + 99999*q(Z1) + 99999*HSTEP( PDGID(lepA) / PDGID(lepB) != -1)
-define chiZ2 : abs(m(Z2) - 91.18) + 99999*q(Z2) + 99999*HSTEP( PDGID(lepC) / PDGID(lepD) != -1) 
+define BestZ1 : abs(m(Z1) - 91.18) + 99999*q(Z1) + 99999*HSTEP( PDGID(lepA) / PDGID(lepB) != -1)
+define BestZ2 : abs(m(Z2) - 91.18) + 99999*q(Z2) + 99999*HSTEP( PDGID(lepC) / PDGID(lepD) != -1) 
 
 define sumtypes : abs(PDGID(goodLep[0])) + abs(PDGID(goodLep[1])) + abs(PDGID(goodLep[2])) + abs(PDGID(goodLep[3]))
 #### weights ####
@@ -49,7 +49,7 @@ define totweight : XSection*mcWeight*Sfactor*Lumi/SumWeights
 define totweightAuto : HSTEP(channelNumber < 310000) * 1 + HSTEP(channelNumber > 310000) * totweight
 # For data, total weight = 1 
 
-region HZZ
+region initializations
   select ALL
   weight eventweight totweightAuto
   select trigE == 1 || trigM == 1
@@ -57,13 +57,17 @@ region HZZ
   select Size(goodMuo) >= 0
   select Size(goodLep) == 4
   Sort Pt(goodLep) descend
+
+region HZZAnalysis
+  initializations
   select Pt(goodLep[0]) > 25
   select Pt(goodLep[1]) > 15
   select Pt(goodLep[2]) > 10
   select sumcharges == 0
   select (sumtypes == 44 || sumtypes == 52) || sumtypes == 48
-  select chiZ1 ~= 0
-  select chiZ2 ~= 0
+  select BestZ1 ~= 0
+  select BestZ2 ~= 0
+  
   histo hPtlep, "Pt leps; pt_{4l} [GeV];Events / bin", 5, 0, 200, Pt(goodLep) 
   histo hEtalep, "Leptons Pseudorapidity; #eta^{all lep}; Leptons / bin", 10, -3, 3, Eta(goodLep)
   histo hPhilep,   " Leptons Azimuthal Angle ; #phi^{all lep}; Leptons / bin", 8, -3.2, 3.2,Phi(goodLep)
