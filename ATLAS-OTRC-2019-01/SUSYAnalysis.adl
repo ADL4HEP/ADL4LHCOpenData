@@ -1,0 +1,160 @@
+info analysis
+  title "Review of the 13 TeV ATLAS Open Data release"
+  experiment ATLAS
+  id "ATLOREACH-PUB-2020-001"
+  publication " EPJ Web Conf., 245 (2020) 08026"
+  sqrtS 13.0
+  lumi 10000
+  doi "10.1051/epjconf/202024508026"
+
+SkipHistos = 1
+
+define MV2c10WP77 = 0.645925
+define MV2c10WP85 = 0.1758475
+define Lumi = 10064.0
+
+object baselineEles
+    take ELE
+    select Pt(ELE) > 10
+    select AbsEta(ELE) < 2.47
+
+object baselineMuos
+    take MUO
+    select Pt(MUO) > 10
+    select AbsEta(MUO) < 2.7
+
+object baselineLeps : Union(baselineEles, baselineMuos)
+
+object baselineBJets
+    take JET
+    select Pt(JET) > 20
+    select AbsEta(JET) < 4.5
+    select (Pt(JET) < 60 && AbsEta(JET) < 2.4) ? jet_jvt(JET) > 0.59 : ALL
+    select jet_MV2c10(JET) > MV2c10WP85
+
+object baselineNonBJets
+    take JET
+    select Pt(JET) > 20
+    select AbsEta(JET) < 4.5
+    select (Pt(JET) < 60 && AbsEta(JET) < 2.4) ? jet_jvt(JET) > 0.59 : ALL
+    select jet_MV2c10(JET) <= MV2c10WP85
+
+# --- Overlap Removal ---
+
+object cleanElesA
+    take baselineEles
+    select dR(baselineEles, baselineBJets) > 0.2
+
+object cleanNonBJetsA
+    take baselineNonBJets
+    select dR(baselineNonBJets, baselineEles) > 0.2
+
+object cleanElesB
+    take cleanElesA
+    select dR(cleanElesA, baselineBJets) > 0.4
+    select dR(cleanElesA, cleanNonBJetsA) > 0.4
+
+object cleanMuos
+    take baselineMuos
+    select dR(baselineMuos, baselineBJets) > 0.4
+    select dR(baselineMuos, cleanNonBJetsA) > 0.4
+
+# partitioning cleaned jets into 4 categories based on pT and b-tagging working points for veto jets
+object JetsA
+    take baselineBJets
+    select Pt(baselineBJets) > 60
+    select jet_MV2c10(baselineBJets) < MV2c10WP77
+
+object JetsB
+    take baselineBJets
+    select Pt(baselineBJets) > 20
+    select jet_MV2c10(baselineBJets) > MV2c10WP77
+
+object JetsC
+    take cleanNonBJetsA
+    select Pt(cleanNonBJetsA) > 60
+    select jet_MV2c10(cleanNonBJetsA) < MV2c10WP77
+
+object JetsD
+    take cleanNonBJetsA
+    select Pt(cleanNonBJetsA) > 20
+    select jet_MV2c10(cleanNonBJetsA) > MV2c10WP77
+
+object signalEles
+    take cleanElesB
+    select Abs(lep_z0(cleanElesB)) * sin(Theta(cleanElesB)) < 0.5
+    select lep_ptcone30(cleanElesB) / lep_pt(cleanElesB) < 0.15
+    select lep_etcone20(cleanElesB) / lep_pt(cleanElesB) < 0.15
+    select Abs(lep_trackd0pvunbiased(cleanElesB)) / lep_tracksigd0pvunbiased(cleanElesB) < 5.0
+
+object signalMuos
+    take cleanMuos
+    select Abs(lep_z0(cleanMuos)) * sin(Theta(cleanMuos)) < 0.5
+    select lep_ptcone30(cleanMuos) / lep_pt(cleanMuos) < 0.15
+    select lep_etcone20(cleanMuos) / lep_pt(cleanMuos) < 0.15
+    select Abs(lep_trackd0pvunbiased(cleanMuos)) / lep_tracksigd0pvunbiased(cleanMuos) < 3.0
+
+object signalLeps : Union(signalEles, signalMuos)
+
+define leadLept    = signalLeps[0]
+define subleadLept = signalLeps[1]
+define mLL         = m(leadLept subleadLept)
+define MT2         = fMT2(leadLept, subleadLept, METLV[0])
+define isSF       = HSTEP(Abs(PDGID(leadLept)) == Abs(PDGID(subleadLept)))
+define isOS       = HSTEP(q(leadLept) * q(subleadLept) < 0)
+define isSFOS     = isSF * isOS
+
+define SF         = scaleFactor_ELE * scaleFactor_MUON * scaleFactor_LepTRIGGER * scaleFactor_PILEUP
+define mcMcWeight = HSTEP(channelNumber > 310000) * mcWeight * Lumi * XSection * SF / SumWeights
+define dataWeight = HSTEP(channelNumber <= 310000) * 1.0
+define totalWeight = dataWeight + mcMcWeight
+
+region initializations
+    select ALL
+    weight myweight totalWeight
+    select Size(baselineEles) >= 0
+    select Size(baselineMuos) >= 0
+    select Size(baselineLeps) >= 0
+    sort Pt(baselineLeps) descend
+    select Size(baselineBJets) >= 0
+    select Size(baselineNonBJets) >= 0
+    select Size(cleanElesA) >= 0
+    select Size(cleanNonBJetsA) >= 0
+    select Size(cleanElesB) >= 0
+    select Size(cleanMuos) >= 0
+    select Size(signalEles) >= 0
+    select Size(signalMuos) >= 0
+
+region precuts
+    initializations
+    select trigE == 1 || trigM == 1
+    select Size(ELE) >= 2 || Size(MUO) >= 2
+    select Size(signalLeps) == 2
+    select Pt(leadLept) > 25
+    select Pt(subleadLept) > 20
+    select Size(JetsA) == 0
+    select Size(JetsB) == 0
+    select Size(JetsC) == 0
+    select Size(JetsD) == 0
+
+region SR2_loose
+    precuts
+    select isSFOS == 1
+    select MT2 > 100
+    select mLL > 111
+
+    histo histmLL_SR2_loose, "Mass of Dilepton System; m_{ll} [GeV];Events / bin", 20, 0, 500, mLL
+    histo histetmiss_SR2_loose, "Missing Transverse Momentum;E_{T}^{miss} [GeV];Events / bin", 20, 0, 2000, MET
+    histo histmt2_SR2_loose, "Stransverse Mass; M_{T2} [GeV]; Events / bin", 20, 0, 400, MT2
+    histo histrebin_etmiss_SR2_loose, "Missing Transverse Momentum;E_{T}^{miss} [GeV];Events / bin", 10, 0, 300, MET
+
+region SR2_tight
+    precuts
+    select isSFOS == 1
+    select MT2 > 130
+    select mLL > 300
+
+    histo histmLL_SR2_tight, "Mass of Dilepton System; m_{ll} [GeV];Events / bin", 20, 0, 500, mLL
+    histo histetmiss_SR2_tight, "Missing Transverse Momentum;E_{T}^{miss} [GeV];Events / bin", 20, 0, 2000, MET
+    histo histmt2_SR2_tight, "Stransverse Mass; M_{T2} [GeV]; Events / bin", 20, 0, 400, MT2
+    histo histrebin_etmiss_SR2_tight, "Missing Transverse Momentum;E_{T}^{miss} [GeV];Events / bin", 10, 0, 300, MET
