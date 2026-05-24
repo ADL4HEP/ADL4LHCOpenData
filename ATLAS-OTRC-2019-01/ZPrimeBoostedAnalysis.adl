@@ -59,7 +59,7 @@ define ttbar : toplep tophad
 define Sfactor : scaleFactor_ELE*scaleFactor_MUON*scaleFactor_LepTRIGGER*scaleFactor_PILEUP*scaleFactor_BTAG
 define Lumi : 10064 # 10 fb-1
 
-define totweight : XSection*mcWeight*Sfactor*Lumi/49296600
+define totweight : XSection*mcWeight*Sfactor*Lumi/sumWeights
 
 define totweightAuto : HSTEP(channelNumber < 310000) * 1 + HSTEP(channelNumber > 310000) * totweight
 # For data, total weight = 1
